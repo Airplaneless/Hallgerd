@@ -1,6 +1,7 @@
 import time
 import argparse
 import sklearn
+import numpy as np
 from sklearn.datasets import make_classification
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
@@ -40,6 +41,7 @@ if __name__ == '__main__':
         nfeatures = args.nfeatures
     # Create dataset 
     X, y = make_classification(n_samples=nsamples, n_features=nfeatures)
+    print(np.max(X))
     y[y == 0] = -1
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, random_state=42)
     # Init models

@@ -8,15 +8,7 @@ from . import GD_CL_KERNELS
 os.environ['PYOPENCL_CTX'] = '0'
 
 
-class Singleton(type):
-    _instances = {}
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
-        return cls._instances[cls]
-
-
-class LogisticRegressionCL(metaclass=Singleton):
+class LogisticRegressionCL():
 
     def __init__(self, C=0, lr=0.1, 
                  max_iter=10000, tol=0.1, 
