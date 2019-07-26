@@ -3,15 +3,17 @@ import sklearn
 import numpy as np
 import pyopencl as cl
 from tqdm import tqdm
-from . import GD_CL_KERNELS
+from .cl import *
+from .utils.math import sigmoid
 
 os.environ['PYOPENCL_CTX'] = '0'
+os.environ['PYOPENCL_COMPILER_OUTPUT'] = '1'
 
 
-class LogisticRegressionCL():
+class LogisticRegressionCL:
 
     def __init__(self, C=0, lr=0.1, 
-                 max_iter=10000, tol=0.1, 
+                 max_iter=1000, tol=0.1, 
                  init=np.zeros,
                  verbose=False):
         '''
@@ -42,12 +44,14 @@ class LogisticRegressionCL():
         if not platforms:
             raise RuntimeError('No OpenCL platforms')
         else:
-            print('using ', cl.get_platforms()[0].name)
+            p = platforms[0]
+            devices = p.get_devices()
+            if not devices:
+                raise RuntimeError('No OpenCL devices')
+            print('using ', devices[0].name)
             self.ctx = cl.create_some_context()
             self.queue = cl.CommandQueue(self.ctx)
-            with open(GD_CL_KERNELS) as f:
-                kernels = f.read()
-            self.prg = cl.Program(self.ctx, kernels).build()
+            self.prg = cl.Program(self.ctx, GD_CL_KERNELS).build()
     
     def fit(self, X, y):
         # Check and format X and y arrays
@@ -101,11 +105,10 @@ class LogisticRegressionCL():
         # Eval
         self.prg.vmmul(self.queue, (nworkers,), None, self.w_g, X_g, y_g, displ_g)
         cl.enqueue_copy(self.queue, y_h, y_g)
-        # cl.enqueue_copy(self.queue, self.w_h, y_g)
-        return y_h
+        return sigmoid(y_h)
 
     def predict(self, X):
         pred = self.predict_proba(X)
-        pred[pred > 0] = 1
-        pred[pred <= 0] = -1
+        pred[pred > 0.5] = 1
+        pred[pred <= 0.5] = -1
         return pred.astype('int')

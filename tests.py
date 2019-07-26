@@ -1,16 +1,11 @@
-import os
 import unittest
 import warnings
-import numpy as np
-import pyopencl as cl
 
 from sklearn.datasets import make_classification
-from sklearn.model_selection import cross_val_score, train_test_split
+from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 
-import hallgerd
-from hallgerd import GD_CL_KERNELS
-from hallgerd.linear import LogisticRegressionCL
+from hallgerd.classic import *
 
 
 os.environ['PYOPENCL_CTX'] = '0'
@@ -23,8 +18,7 @@ class TestCLkernels(unittest.TestCase):
             warnings.simplefilter("ignore")
             ctx = cl.create_some_context()
             queue = cl.CommandQueue(ctx)
-            kernel = open(GD_CL_KERNELS).read()
-            prg = cl.Program(ctx, kernel).build()
+            prg = cl.Program(ctx, GD_CL_KERNELS).build()
 
             w_h = np.random.random(200).astype(np.float32)
             X_h = np.random.random((200, 109000)).astype(np.float32)
@@ -50,8 +44,7 @@ class TestCLkernels(unittest.TestCase):
             warnings.simplefilter("ignore")
             ctx = cl.create_some_context()
             queue = cl.CommandQueue(ctx)
-            kernel = open(GD_CL_KERNELS).read()
-            prg = cl.Program(ctx, kernel).build()
+            prg = cl.Program(ctx, GD_CL_KERNELS).build()
 
             w_h = np.random.random(200).astype(np.float32)
             X_h = np.random.random((109000, 200)).astype(np.float32)
@@ -86,9 +79,10 @@ class TestCLkernels(unittest.TestCase):
             
             self.assertGreater(1e-2, np.linalg.norm(res - dw_h)) 
 
+
 class TestModels(unittest.TestCase):
     
-    def test_sgd_classifier(self):
+    def test_logreg_classifier(self):
         X, y = make_classification(n_samples=1000, random_state=42)
         y[y == 0] = -1
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, random_state=42)
@@ -97,8 +91,7 @@ class TestModels(unittest.TestCase):
         y_pred = clf.predict(X_test)
         score = accuracy_score(y_test, y_pred)
         self.assertGreater(score, 0.7, msg='LogReg underfit')
-
-
+        
 
 if __name__ == "__main__":
-     unittest.main()
+    unittest.main()
