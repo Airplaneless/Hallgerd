@@ -67,12 +67,12 @@ if __name__ == '__main__':
     y = y.reshape((1, -1))
 
     model = Sequential(batch_size=256, epochs=5)
-    model.add(Dense(2, 4))
-    model.add(Dense(4, 1))
-    model.fit(X, y)
+    model.add(Dense(2, 4, activation='sigmoid'))
+    model.add(Dense(4, 1, activation='softmax'))
+    # model.fit(X, y)
 
     # X = np.random.random((2, 30)).astype(np.float64)
     # X = X.copy()
     print(model(X[:, 0:5]))
-    print(model(X[:, 0:20]))
+    # print(model(X[:, 0:20]))
     # print(model(x))

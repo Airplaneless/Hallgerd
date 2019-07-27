@@ -5,9 +5,14 @@ import pyopencl as cl
 from hallgerd.cl import MAT_CL_KERNELS
 
 
+SUPPORTED_ACTIVATIONS = ['sigmoid', 'relu', 'softmax']
+
+
 class Dense:
 
-    def __init__(self, in_shape, out_shape):
+    def __init__(self, in_shape, out_shape, activation='sigmoid'):
+        assert activation in SUPPORTED_ACTIVATIONS
+        self.activation = activation
         self.weight = np.random.randn(out_shape, in_shape).astype(np.float64)
         self.in_shape = in_shape
         self.out_shape = out_shape
@@ -39,6 +44,7 @@ class Dense:
         self.input_cl = input_cl
         self._batches = batches
         M = self.out_shape
+        M_cl = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=np.int64(M))
         K = self.in_shape
         K_cl = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=np.int64(K))
         N = self._batches
@@ -49,13 +55,28 @@ class Dense:
 
         self.prg.matmul(self.queue, (M, N), None, N_cl, K_cl, self.weight_cl, self.input_cl, self.output_cl)
         self.prg.sum_col(self.queue, (M, N), None, self.output_cl, self.bias_cl, N_cl)
-        self.prg.sigmoid(self.queue, (M*N,), None, self.output_cl)
+        if self.activation == 'sigmoid':
+            self.prg.sigmoid(self.queue, (M*N,), None, self.output_cl)
+        if self.activation == 'relu':
+            self.prg.relu(self.queue, (M * N,), None, self.output_cl)
+        if self.activation == 'softmax':
+            self.prg.exp(self.queue, (M * N,), None, self.output_cl)
+            v = np.empty(N, dtype=np.float64)
+            v_cl = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=v.nbytes)
+            self.prg.sumreduce(self.queue, (M, N), None, self.output_cl, v_cl, M_cl, N_cl)
+            self.prg.inverse(self.queue, (N,), None, v_cl)
+            self.prg.dot2(self.queue, (M, N), None, self.output_cl, v_cl, self.output_cl)
         return self.output_cl
 
     def backprop(self, error_cl, lr):
         lr_cl = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=np.float64(lr))
         # err = err * sigmoid_der(self.y)
-        self.prg.d_sigmoid(self.queue, (self.out_shape * self._batches, ), None, self.output_cl)
+        if self.activation == 'sigmoid':
+            self.prg.d_sigmoid(self.queue, (self.out_shape * self._batches, ), None, self.output_cl)
+        if self.activation == 'relu':
+            self.prg.d_relu(self.queue, (self.out_shape * self._batches,), None, self.output_cl)
+        if self.activation == 'softmax':
+            self.prg.d_softmax(self.queue, (self.out_shape * self._batches,), None, self.output_cl)
         self.prg.dot(self.queue, (self.out_shape * self._batches, ), None, error_cl, self.output_cl)
         # self.weight += np.matmul(err, self.x.T) * lr
         x = np.empty((self.in_shape, self._batches), dtype=np.float64)

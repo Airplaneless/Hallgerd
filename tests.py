@@ -17,6 +17,41 @@ def sigmoid(x):
 
 class TestCLkernels(unittest.TestCase):
 
+    def test_dot(self):
+        ctx = cl.create_some_context()
+        queue = cl.CommandQueue(ctx)
+        prg = cl.Program(ctx, MAT_CL_KERNELS).build()
+
+        A = np.random.random((1000, 30)).astype(np.float64)
+        A_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=A)
+        v = np.random.random(30).astype(np.float64)
+        v_cl = cl.Buffer(ctx, cl.mem_flags.READ_WRITE | cl.mem_flags.COPY_HOST_PTR, hostbuf=v)
+        r = np.empty_like(A)
+        r_cl = cl.Buffer(ctx, cl.mem_flags.READ_WRITE, size=A.nbytes)
+
+        res = A * v
+        prg.dot2(queue, A.shape, None, A_cl, v_cl, r_cl)
+        cl.enqueue_copy(queue, r, r_cl)
+        self.assertGreater(1e-2, np.linalg.norm(res - r), msg='matrix sum reduce wrong')
+
+    def test_sumreduce(self):
+        ctx = cl.create_some_context()
+        queue = cl.CommandQueue(ctx)
+        prg = cl.Program(ctx, MAT_CL_KERNELS).build()
+
+        A = np.random.random((2000, 4)).astype(np.float64)
+        A_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=A)
+        v = np.empty((1, 4), dtype=np.float64)
+        v_cl = cl.Buffer(ctx, cl.mem_flags.READ_WRITE, size=v.nbytes)
+        ax0_cl = cl.Buffer(ctx, cl.mem_flags.READ_WRITE | cl.mem_flags.COPY_HOST_PTR, hostbuf=np.int64(A.shape[0]))
+        ax1_cl = cl.Buffer(ctx, cl.mem_flags.READ_WRITE | cl.mem_flags.COPY_HOST_PTR, hostbuf=np.int64(A.shape[1]))
+
+        res = np.sum(A, axis=0)
+
+        prg.sumreduce(queue, A.shape, None, A_cl, v_cl, ax0_cl, ax1_cl)
+        cl.enqueue_copy(queue, v, v_cl)
+        self.assertGreater(1e-2, np.linalg.norm(res - v), msg='matrix sum reduce wrong')
+
     def test_matmul(self):
         ctx = cl.create_some_context()
         queue = cl.CommandQueue(ctx)
