@@ -1,10 +1,9 @@
-import os
 import sklearn
 import numpy as np
 import pyopencl as cl
 from tqdm import tqdm
-from .cl import *
-from .utils.math import sigmoid
+from hallgerd.cl import *
+from hallgerd.utils.math import sigmoid
 
 os.environ['PYOPENCL_CTX'] = '0'
 os.environ['PYOPENCL_COMPILER_OUTPUT'] = '1'

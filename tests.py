@@ -11,8 +11,111 @@ from hallgerd.classic import *
 os.environ['PYOPENCL_CTX'] = '0'
 
 
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
+
 class TestCLkernels(unittest.TestCase):
-    
+
+    def test_matmul(self):
+        ctx = cl.create_some_context()
+        queue = cl.CommandQueue(ctx)
+        prg = cl.Program(ctx, MAT_CL_KERNELS).build()
+
+        A = np.random.randn(1000, 2000).astype(np.float64)
+        A_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=A)
+        B = np.random.randn(2000, 3000).astype(np.float64)
+        B_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=B)
+        C = np.empty((A.shape[0], B.shape[1]), dtype=np.float64)
+        C_cl = cl.Buffer(ctx, cl.mem_flags.WRITE_ONLY, size=C.nbytes)
+        assert A.shape[1] == B.shape[0]
+        M = A.shape[0]
+        K = B.shape[0]
+        K_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=np.int64(K))
+        N = B.shape[1]
+        N_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=np.int64(N))
+
+        res = np.matmul(A, B)
+
+        prg.matmul(queue, (M, N), None, N_cl, K_cl, A_cl, B_cl, C_cl)
+        cl.enqueue_copy(queue, C, C_cl)
+        self.assertGreater(1e-2, np.linalg.norm(res - C), msg='matrix multiplication wrong')
+
+    def test_matmul_and_sum_and_sigmoid_and_dot(self):
+        ctx = cl.create_some_context()
+        queue = cl.CommandQueue(ctx)
+        prg = cl.Program(ctx, MAT_CL_KERNELS).build()
+
+        lr = 1e-1
+        lr_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=np.float64(lr))
+        A = np.random.randn(1000, 2000).astype(np.float64)
+        A_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=A)
+        B = np.random.randn(2000, 3000).astype(np.float64)
+        B_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=B)
+        C = np.empty((A.shape[0], B.shape[1]), dtype=np.float64)
+        C_cl = cl.Buffer(ctx, cl.mem_flags.READ_WRITE, size=C.nbytes)
+        D = np.random.randn(A.shape[0], B.shape[1]).astype(np.float64)
+        D_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=D)
+        assert A.shape[1] == B.shape[0]
+        M = A.shape[0]
+        K = B.shape[0]
+        K_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=np.int64(K))
+        N = B.shape[1]
+        N_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=np.int64(N))
+
+        res = sigmoid(np.matmul(A, B) + D) * lr
+
+        prg.matmul(queue, (M, N), None, N_cl, K_cl, A_cl, B_cl, C_cl)
+        prg.sum(queue, (M*N, ), None, C_cl, D_cl)
+        prg.sigmoid(queue, (M*N, ), None, C_cl)
+        prg.scalar_dot(queue, (M * N,), None, C_cl, lr_cl)
+        cl.enqueue_copy(queue, C, C_cl)
+        self.assertGreater(1e-2, np.linalg.norm(res - C), msg='matrix multiplication and sum wrong')
+
+    def test_sum_col(self):
+        ctx = cl.create_some_context()
+        queue = cl.CommandQueue(ctx)
+        prg = cl.Program(ctx, MAT_CL_KERNELS).build()
+
+        A = np.random.randn(1000, 2000).astype(np.float64)
+        A_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=A)
+        B = np.random.randn(2000, 3000).astype(np.float64)
+        B_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=B)
+        C = np.empty((A.shape[0], B.shape[1]), dtype=np.float64)
+        C_cl = cl.Buffer(ctx, cl.mem_flags.WRITE_ONLY, size=C.nbytes)
+        v = np.random.randn(1000, 1).astype(np.float64)
+        v_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=v)
+        displ_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=np.int64(3000))
+        assert A.shape[1] == B.shape[0]
+        M = A.shape[0]
+        K = B.shape[0]
+        K_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=np.int64(K))
+        N = B.shape[1]
+        N_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=np.int64(N))
+
+        res = np.matmul(A, B) + v
+
+        prg.matmul(queue, (M, N), None, N_cl, K_cl, A_cl, B_cl, C_cl)
+        prg.sum_col(queue, (M, N), None, C_cl, v_cl, displ_cl)
+        cl.enqueue_copy(queue, C, C_cl)
+        self.assertGreater(1e-2, np.linalg.norm(res - C), msg='sum col wrong')
+
+    def test_transpose(self):
+        ctx = cl.create_some_context()
+        queue = cl.CommandQueue(ctx)
+        prg = cl.Program(ctx, MAT_CL_KERNELS).build()
+
+        x = np.random.randn(1000, 2000).astype(np.float64)
+        x_t = np.empty((2000, 1000), dtype=np.float64)
+        x_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=x)
+        x_t_cl = cl.Buffer(ctx, cl.mem_flags.READ_WRITE, size=x.nbytes)
+        displ_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=np.int64(2000))
+        displt_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=np.int64(1000))
+        prg.transpose(queue, (2000, 1000), None, x_cl, x_t_cl, displ_cl, displt_cl)
+        cl.enqueue_copy(queue, x_t, x_t_cl)
+        self.assertGreater(1e-2, np.linalg.norm(x_t - x.T), msg='matrix transpose wrong')
+
+
     def test_vmmul(self):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
