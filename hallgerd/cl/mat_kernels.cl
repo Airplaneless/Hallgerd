@@ -108,6 +108,13 @@ __kernel void scalar_dot(__global double * A, __global const double * s)
     double scalar = * s;
     A[i] = scalar * A[i];
 }
+
+__kernel void scalar_sum(__global double * A, __global const double * s)
+{
+    size_t i = get_global_id(0);
+    double scalar = * s;
+    A[i] = scalar + A[i];
+}
 //ACTIVATIONS
 __kernel void relu(__global double * x)
 {
@@ -115,6 +122,8 @@ __kernel void relu(__global double * x)
     double buff = 0.0;
     if (x[i] > 0) {
         buff += x[i];
+    } else {
+        buff += x[i]*0.000001;
     }
     x[i] = buff;
 }
@@ -123,8 +132,10 @@ __kernel void d_relu(__global double * sx)
 {
     size_t i = get_global_id(0);
     double buff = 0.0;
-    if (sx[i] >= 0) {
+    if (sx[i] > 0) {
         buff += 1.0;
+    } else {
+        buff += 0.000001;
     }
     sx[i] = buff;
 }

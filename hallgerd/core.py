@@ -7,6 +7,13 @@ from hallgerd.cl import MAT_CL_KERNELS
 from hallgerd.layers import Dense
 
 
+SUPPORTED_LOSSES = ['mse', 'cross_entropy']
+
+
+def mse(yt, yp):
+    return np.linalg.norm(yt - yp)
+
+
 def mse_delta(yt, yp):
     return 2 * (yt - yp)
 
@@ -35,12 +42,14 @@ def cross_entropy_delta(yt, yp):
 
 class Sequential:
 
-    def __init__(self, lr=1e-3, batch_size=1, epochs=1, loss=mse_delta):
+    def __init__(self, lr=1e-3, batch_size=1, epochs=1, loss='mse', verbose=True):
         self.lr = lr
         self.bs = batch_size
+        assert loss in SUPPORTED_LOSSES
         self.loss = loss
         self.epochs = epochs
         self.history = {}
+        self.verbose = verbose
         self.layers = list()
         self.ctx = cl.create_some_context()
         self.queue = cl.CommandQueue(self.ctx)
@@ -69,7 +78,10 @@ class Sequential:
         y = y.copy().astype(np.float64)
         yp = np.empty((self.layers[-1].out_shape, y.shape[1]), dtype=np.float64)
         cl.enqueue_copy(self.queue, yp, self.layers[-1].output_cl)
-        error = self.loss(y, yp)
+        if self.loss == 'mse':
+            error = mse_delta(y, yp)
+        if self.loss == 'cross_entropy':
+            error = cross_entropy_delta(y, yp)
         error_cl = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE | cl.mem_flags.COPY_HOST_PTR, hostbuf=error)
         for layer in reversed(self.layers):
             error_cl = layer.backprop(error_cl, self.lr)
@@ -79,11 +91,14 @@ class Sequential:
         assert X.shape[1] == y.shape[1]
         num_batches = np.ceil(X.shape[1] / self.bs)
         self.history['loss'] = list()
-        for _ in tqdm(range(self.epochs)):
+        for _ in tqdm(range(self.epochs), disable=not self.verbose):
             for x, yt in zip(np.array_split(X.T, num_batches), np.array_split(y.T, num_batches)):
                 _ = self.__call__(x.T)
                 self.backprop(yt.T)
-            loss = cross_entropy(y, model(X))
+            if self.loss == 'mse':
+                loss = mse(y, self.__call__(X))
+            if self.loss == 'cross_entropy':
+                loss = cross_entropy(y, self.__call__(X))
             self.history['loss'].append(loss)
 
 
@@ -92,10 +107,10 @@ if __name__ == '__main__':
     X = np.random.random((784, 1000))
     y = np.random.randint(0, 10, (10, 1000))
 
-    model = Sequential(lr=1e-6, batch_size=512, epochs=1, loss=cross_entropy_delta)
-    model.add(Dense(784, 512, activation='sigmoid'))
-    model.add(Dense(512, 512, activation='sigmoid'))
-    model.add(Dense(512, 10, activation='sigmoid'))
+    model = Sequential(lr=1e-1, batch_size=512, epochs=1, loss='cross_entropy')
+    model.add(Dense(784, 512, activation='relu'))
+    model.add(Dense(512, 512, activation='relu'))
+    model.add(Dense(512, 10, activation='softmax'))
     model.fit(X, y)
 
     # X = np.random.random((2, 30)).astype(np.float64)

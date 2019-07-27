@@ -20,13 +20,13 @@ class TestCLkernels(unittest.TestCase):
     def test_softmax(self):
 
         def softmax(x):
-            return np.exp(x) / np.sum(np.exp(x), axis=0)
+            return np.exp(x - np.max(x)) / np.sum(np.exp(x - np.max(x)), axis=0)
 
         ctx = cl.create_some_context()
         queue = cl.CommandQueue(ctx)
         prg = cl.Program(ctx, MAT_CL_KERNELS).build()
 
-        A = np.random.random((1000, 300)).astype(np.float64)
+        A = np.random.random((1000, 300)).astype(np.float64) + 30000
         rA = np.empty_like(A)
         A_cl = cl.Buffer(ctx, cl.mem_flags.READ_WRITE | cl.mem_flags.COPY_HOST_PTR, hostbuf=A)
 
@@ -35,7 +35,12 @@ class TestCLkernels(unittest.TestCase):
         M_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=np.int64(M))
         N = A.shape[1]
         N_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=np.int64(N))
-        prg.exp(queue, (M*N,), None, A_cl)
+        buff_np = np.empty((M, N)).astype(np.float64)
+        cl.enqueue_copy(queue, buff_np, A_cl)
+        max = -np.max(buff_np)
+        max_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=np.float64(max))
+        prg.scalar_sum(queue, (M * N,), None, A_cl, max_cl)
+        prg.exp(queue, (M * N,), None, A_cl)
         v = np.empty(N, dtype=np.float64)
         v_cl = cl.Buffer(ctx, cl.mem_flags.READ_WRITE, size=v.nbytes)
         prg.sumreduce(queue, (M, N), None, A_cl, v_cl, M_cl, N_cl)

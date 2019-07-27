@@ -2,8 +2,6 @@ import logging
 import numpy as np
 import pyopencl as cl
 
-from hallgerd.cl import MAT_CL_KERNELS
-
 
 SUPPORTED_ACTIVATIONS = ['sigmoid', 'relu', 'softmax']
 
@@ -13,7 +11,7 @@ class Dense:
     def __init__(self, in_shape, out_shape, activation='sigmoid'):
         assert activation in SUPPORTED_ACTIVATIONS
         self.activation = activation
-        self.weight = np.random.randn(out_shape, in_shape).astype(np.float64)
+        self.weight = np.random.randn(out_shape, in_shape).astype(np.float64) * np.sqrt(2 / in_shape)
         self.in_shape = in_shape
         self.out_shape = out_shape
         self.bias = np.zeros((out_shape, 1)).astype(np.float64)
@@ -64,6 +62,12 @@ class Dense:
         if self.activation == 'relu':
             self.prg.relu(self.queue, (M * N,), None, self.output_cl)
         if self.activation == 'softmax':
+            #TODO: do something with this
+            buff_np = np.empty((M, N)).astype(np.float64)
+            cl.enqueue_copy(self.queue, buff_np, self.output_cl)
+            max = -np.max(buff_np)
+            max_cl = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=np.float64(max))
+            self.prg.scalar_sum(self.queue, (M * N,), None, self.output_cl, max_cl)
             self.prg.exp(self.queue, (M * N,), None, self.output_cl)
             v = np.empty(N, dtype=np.float64)
             v_cl = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=v.nbytes)
