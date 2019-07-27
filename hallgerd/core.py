@@ -37,7 +37,7 @@ def cross_entropy_delta(yt, yp):
     grad = softmax(yp)
     grad[range(m), dyt.astype('int')] -= 1
     grad = grad / m
-    return grad
+    return -grad
 
 
 class Sequential:
