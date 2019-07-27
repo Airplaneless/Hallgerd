@@ -21,7 +21,7 @@ __kernel void sumreduce(__global double * A,
     }
 }
 
-__kernel void exp(__global double * A)
+__kernel void exp1(__global double * A)
 {
     size_t i = get_global_id(0);
     double buff = exp(A[i]);
@@ -85,7 +85,7 @@ __kernel void sum_col(__global double * A,
     A[j + i * _displ] = buff;
 }
 
-__kernel void dot(__global double * A, __global double * B)
+__kernel void dot1(__global double * A, __global double * B)
 {
     size_t i = get_global_id(0);
     double buff = A[i] * B[i];

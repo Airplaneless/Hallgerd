@@ -68,7 +68,7 @@ class Dense:
             max = -np.max(buff_np)
             max_cl = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=np.float64(max))
             self.prg.scalar_sum(self.queue, (M * N,), None, self.output_cl, max_cl)
-            self.prg.exp(self.queue, (M * N,), None, self.output_cl)
+            self.prg.exp1(self.queue, (M * N,), None, self.output_cl)
             v = np.empty(N, dtype=np.float64)
             v_cl = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=v.nbytes)
             self.prg.sumreduce(self.queue, (M, N), None, self.output_cl, v_cl, M_cl, N_cl)
@@ -85,7 +85,7 @@ class Dense:
             self.prg.d_relu(self.queue, (self.out_shape * self._batches,), None, self.output_cl)
         if self.activation == 'softmax':
             self.prg.d_softmax(self.queue, (self.out_shape * self._batches,), None, self.output_cl)
-        self.prg.dot(self.queue, (self.out_shape * self._batches, ), None, error_cl, self.output_cl)
+        self.prg.dot1(self.queue, (self.out_shape * self._batches, ), None, error_cl, self.output_cl)
         # self.weight += np.matmul(err, self.x.T) * lr
         x = np.empty((self.in_shape, self._batches), dtype=np.float64)
         x_t_cl = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=x.nbytes)

@@ -40,7 +40,7 @@ class TestCLkernels(unittest.TestCase):
         max = -np.max(buff_np)
         max_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=np.float64(max))
         prg.scalar_sum(queue, (M * N,), None, A_cl, max_cl)
-        prg.exp(queue, (M * N,), None, A_cl)
+        prg.exp1(queue, (M * N,), None, A_cl)
         v = np.empty(N, dtype=np.float64)
         v_cl = cl.Buffer(ctx, cl.mem_flags.READ_WRITE, size=v.nbytes)
         prg.sumreduce(queue, (M, N), None, A_cl, v_cl, M_cl, N_cl)
