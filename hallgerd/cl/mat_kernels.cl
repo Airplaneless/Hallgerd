@@ -93,14 +93,13 @@ __kernel void dot(__global double * A, __global double * B)
 }
 
 __kernel void dot2(__global double * A,
-                   __global double * B,
-                   __global double * C)
+                   __global double * B)
 {
     size_t i = get_global_id(0);
     size_t j = get_global_id(1);
     size_t J = get_global_size(1);
     double buff = A[j + i * J] * B[j];
-    C[j + i * J] = buff;
+    A[j + i * J] = buff;
 }
 
 __kernel void scalar_dot(__global double * A, __global const double * s)
@@ -124,7 +123,7 @@ __kernel void d_relu(__global double * sx)
 {
     size_t i = get_global_id(0);
     double buff = 0.0;
-    if (sx[i] > 0) {
+    if (sx[i] >= 0) {
         buff += 1.0;
     }
     sx[i] = buff;

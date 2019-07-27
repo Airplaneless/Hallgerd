@@ -7,13 +7,40 @@ from hallgerd.cl import MAT_CL_KERNELS
 from hallgerd.layers import Dense
 
 
+def mse_delta(yt, yp):
+    return 2 * (yt - yp)
+
+
+def softmax(x):
+    return np.exp(x) / np.sum(np.exp(x), axis=0)
+
+
+def cross_entropy(yt, yp):
+    m = yt.shape[0]
+    dyt = yt.argmax(axis=1)
+    p = softmax(yp)
+    log_likelihood = - np.log(p[np.arange(m), dyt])
+    loss = np.sum(log_likelihood) / m
+    return loss
+
+
+def cross_entropy_delta(yt, yp):
+    m = yt.shape[0]
+    dyt = yt.argmax(axis=1)
+    grad = softmax(yp)
+    grad[range(m), dyt.astype('int')] -= 1
+    grad = grad / m
+    return grad
+
+
 class Sequential:
 
-    def __init__(self, lr=1e-3, batch_size=1, epochs=1):
+    def __init__(self, lr=1e-3, batch_size=1, epochs=1, loss=mse_delta):
         self.lr = lr
         self.bs = batch_size
-        # self._batches = None
+        self.loss = loss
         self.epochs = epochs
+        self.history = {}
         self.layers = list()
         self.ctx = cl.create_some_context()
         self.queue = cl.CommandQueue(self.ctx)
@@ -33,11 +60,16 @@ class Sequential:
         cl.enqueue_copy(self.queue, out_np, x_cl)
         return out_np
 
+    def weights2cpu(self):
+        for layer in self.layers:
+            layer.__weight2cpu__()
+        return True
+
     def backprop(self, y):
         y = y.copy().astype(np.float64)
         yp = np.empty((self.layers[-1].out_shape, y.shape[1]), dtype=np.float64)
         cl.enqueue_copy(self.queue, yp, self.layers[-1].output_cl)
-        error = 2 * (y - yp)
+        error = self.loss(y, yp)
         error_cl = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE | cl.mem_flags.COPY_HOST_PTR, hostbuf=error)
         for layer in reversed(self.layers):
             error_cl = layer.backprop(error_cl, self.lr)
@@ -46,30 +78,25 @@ class Sequential:
     def fit(self, X, y):
         assert X.shape[1] == y.shape[1]
         num_batches = np.ceil(X.shape[1] / self.bs)
+        self.history['loss'] = list()
         for _ in tqdm(range(self.epochs)):
             for x, yt in zip(np.array_split(X.T, num_batches), np.array_split(y.T, num_batches)):
                 _ = self.__call__(x.T)
                 self.backprop(yt.T)
+            loss = cross_entropy(y, model(X))
+            self.history['loss'].append(loss)
 
 
 if __name__ == '__main__':
 
-    def xor(x1, x2):
-        if 1 / (x1 * x1) + 1 / (x2 * x2) > 4:
-            return 1
-        return 0
+    X = np.random.random((784, 1000))
+    y = np.random.randint(0, 10, (10, 1000))
 
-
-    vxor = np.vectorize(xor)
-    X = np.random.randn(10000, 2, )
-    y = vxor(X[:, 0], X[:, 1])
-    X = X.T
-    y = y.reshape((1, -1))
-
-    model = Sequential(batch_size=256, epochs=5)
-    model.add(Dense(2, 4, activation='sigmoid'))
-    model.add(Dense(4, 1, activation='softmax'))
-    # model.fit(X, y)
+    model = Sequential(lr=1e-6, batch_size=512, epochs=1, loss=cross_entropy_delta)
+    model.add(Dense(784, 512, activation='sigmoid'))
+    model.add(Dense(512, 512, activation='sigmoid'))
+    model.add(Dense(512, 10, activation='sigmoid'))
+    model.fit(X, y)
 
     # X = np.random.random((2, 30)).astype(np.float64)
     # X = X.copy()

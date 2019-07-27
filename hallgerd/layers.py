@@ -39,6 +39,10 @@ class Dense:
         self.dbias_cl = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=self.bias.nbytes)
         return True
 
+    def __weight2cpu__(self):
+        cl.enqueue_copy(self.queue, self.weight, self.weight_cl)
+        cl.enqueue_copy(self.queue, self.bias, self.bias_cl)
+
     def __call__(self, input_cl, batches):
         # y = np.matmul(self.weight, x) + self.bias
         self.input_cl = input_cl
@@ -56,7 +60,7 @@ class Dense:
         self.prg.matmul(self.queue, (M, N), None, N_cl, K_cl, self.weight_cl, self.input_cl, self.output_cl)
         self.prg.sum_col(self.queue, (M, N), None, self.output_cl, self.bias_cl, N_cl)
         if self.activation == 'sigmoid':
-            self.prg.sigmoid(self.queue, (M*N,), None, self.output_cl)
+            self.prg.sigmoid(self.queue, (M * N,), None, self.output_cl)
         if self.activation == 'relu':
             self.prg.relu(self.queue, (M * N,), None, self.output_cl)
         if self.activation == 'softmax':
@@ -65,7 +69,7 @@ class Dense:
             v_cl = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=v.nbytes)
             self.prg.sumreduce(self.queue, (M, N), None, self.output_cl, v_cl, M_cl, N_cl)
             self.prg.inverse(self.queue, (N,), None, v_cl)
-            self.prg.dot2(self.queue, (M, N), None, self.output_cl, v_cl, self.output_cl)
+            self.prg.dot2(self.queue, (M, N), None, self.output_cl, v_cl)
         return self.output_cl
 
     def backprop(self, error_cl, lr):
@@ -128,19 +132,3 @@ class Dense:
         displ_cl.release()
         displt_cl.release()
         return next_error_cl
-
-
-if __name__ == '__main__':
-    ctx = cl.create_some_context()
-    queue = cl.CommandQueue(ctx)
-    prg = cl.Program(ctx, MAT_CL_KERNELS).build()
-    layer = Dense(5, 2)
-    layer.__connect_context__(ctx, queue, prg)
-
-    A = np.random.randn(5, 1).astype(np.float64)
-    A_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=A)
-
-    C = np.empty((2, 1), dtype=np.float64)
-    C_cl = layer(A_cl, batches=1)
-    cl.enqueue_copy(queue, C, C_cl)
-    print(C)

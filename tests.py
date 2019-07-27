@@ -17,21 +17,66 @@ def sigmoid(x):
 
 class TestCLkernels(unittest.TestCase):
 
+    def test_softmax(self):
+
+        def softmax(x):
+            return np.exp(x) / np.sum(np.exp(x), axis=0)
+
+        ctx = cl.create_some_context()
+        queue = cl.CommandQueue(ctx)
+        prg = cl.Program(ctx, MAT_CL_KERNELS).build()
+
+        A = np.random.random((1000, 300)).astype(np.float64)
+        rA = np.empty_like(A)
+        A_cl = cl.Buffer(ctx, cl.mem_flags.READ_WRITE | cl.mem_flags.COPY_HOST_PTR, hostbuf=A)
+
+        res = softmax(A)
+        M = A.shape[0]
+        M_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=np.int64(M))
+        N = A.shape[1]
+        N_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=np.int64(N))
+        prg.exp(queue, (M*N,), None, A_cl)
+        v = np.empty(N, dtype=np.float64)
+        v_cl = cl.Buffer(ctx, cl.mem_flags.READ_WRITE, size=v.nbytes)
+        prg.sumreduce(queue, (M, N), None, A_cl, v_cl, M_cl, N_cl)
+        prg.inverse(queue, (N,), None, v_cl)
+        prg.dot2(queue, (M, N), None, A_cl, v_cl)
+        cl.enqueue_copy(queue, rA, A_cl)
+        self.assertGreater(1e-2, np.linalg.norm(res - rA), msg='wrong softmax')
+
+    def test_relu(self):
+
+        def relu(x):
+            return np.maximum(0, x)
+
+        ctx = cl.create_some_context()
+        queue = cl.CommandQueue(ctx)
+        prg = cl.Program(ctx, MAT_CL_KERNELS).build()
+
+        A = np.random.random((1000, 30)).astype(np.float64)
+        rA = np.empty_like(A)
+        A_cl = cl.Buffer(ctx, cl.mem_flags.READ_WRITE | cl.mem_flags.COPY_HOST_PTR, hostbuf=A)
+
+        res = relu(A)
+        prg.relu(queue, A.shape, None, A_cl)
+        cl.enqueue_copy(queue, rA, A_cl)
+        self.assertGreater(1e-2, np.linalg.norm(res - rA), msg='wrong relu')
+
     def test_dot(self):
         ctx = cl.create_some_context()
         queue = cl.CommandQueue(ctx)
         prg = cl.Program(ctx, MAT_CL_KERNELS).build()
 
         A = np.random.random((1000, 30)).astype(np.float64)
-        A_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=A)
+        A_cl = cl.Buffer(ctx, cl.mem_flags.READ_WRITE | cl.mem_flags.COPY_HOST_PTR, hostbuf=A)
         v = np.random.random(30).astype(np.float64)
         v_cl = cl.Buffer(ctx, cl.mem_flags.READ_WRITE | cl.mem_flags.COPY_HOST_PTR, hostbuf=v)
         r = np.empty_like(A)
         r_cl = cl.Buffer(ctx, cl.mem_flags.READ_WRITE, size=A.nbytes)
 
         res = A * v
-        prg.dot2(queue, A.shape, None, A_cl, v_cl, r_cl)
-        cl.enqueue_copy(queue, r, r_cl)
+        prg.dot2(queue, A.shape, None, A_cl, v_cl)
+        cl.enqueue_copy(queue, r, A_cl)
         self.assertGreater(1e-2, np.linalg.norm(res - r), msg='matrix sum reduce wrong')
 
     def test_sumreduce(self):
