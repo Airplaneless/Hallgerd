@@ -19,23 +19,24 @@ def mse_delta(yt, yp):
 
 
 def softmax(x):
-    return np.exp(x) / np.sum(np.exp(x), axis=0)
+    exps = np.exp(x - np.max(x))
+    return exps / np.sum(exps, axis=0)
 
 
 def cross_entropy(yt, yp):
-    m = yt.shape[0]
-    dyt = yt.argmax(axis=1)
+    m = yt.shape[1]
+    dyt = yt.argmax(axis=0)
     p = softmax(yp)
-    log_likelihood = - np.log(p[np.arange(m), dyt])
+    log_likelihood = - np.log(p[dyt, range(m)])
     loss = np.sum(log_likelihood) / m
     return loss
 
 
 def cross_entropy_delta(yt, yp):
-    m = yt.shape[0]
-    dyt = yt.argmax(axis=1)
+    m = yt.shape[1]
+    dyt = yt.argmax(axis=0)
     grad = softmax(yp)
-    grad[range(m), dyt.astype('int')] -= 1
+    grad[dyt, range(m)] -= 1
     grad = grad / m
     return -grad
 
@@ -67,6 +68,7 @@ class Sequential:
             x_cl = layer(x_cl, batches=_batches)
         out_np = np.empty((self.layers[-1].out_shape, _batches), dtype=np.float64)
         cl.enqueue_copy(self.queue, out_np, x_cl)
+        x_cl.release()
         return out_np
 
     def weights2cpu(self):
@@ -85,6 +87,7 @@ class Sequential:
         error_cl = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE | cl.mem_flags.COPY_HOST_PTR, hostbuf=error)
         for layer in reversed(self.layers):
             error_cl = layer.backprop(error_cl, self.lr)
+        error_cl.release()
         return True
 
     def fit(self, X, y):

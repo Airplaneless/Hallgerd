@@ -123,7 +123,7 @@ __kernel void relu(__global double * x)
     if (x[i] > 0) {
         buff += x[i];
     } else {
-        buff += x[i]*0.000001;
+        buff += x[i] * 0.01;
     }
     x[i] = buff;
 }
@@ -135,7 +135,7 @@ __kernel void d_relu(__global double * sx)
     if (sx[i] > 0) {
         buff += 1.0;
     } else {
-        buff += 0.000001;
+        buff += 0.01;
     }
     sx[i] = buff;
 }
