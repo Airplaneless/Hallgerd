@@ -68,7 +68,6 @@ class Sequential:
             x_cl = layer(x_cl, batches=_batches)
         out_np = np.empty((self.layers[-1].out_shape, _batches), dtype=np.float64)
         cl.enqueue_copy(self.queue, out_np, x_cl)
-        x_cl.release()
         return out_np
 
     def weights2cpu(self):
