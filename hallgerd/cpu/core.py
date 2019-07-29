@@ -18,13 +18,11 @@ def softmax(x):
 
 
 def cross_entropy(yt, yp):
-    # p = softmax(yp)
     loss = -np.sum(yt * yp)
     return loss
 
 
 def cross_entropy_delta(yt, yp):
-    p = softmax(yp)
     return yt - yp
 
 

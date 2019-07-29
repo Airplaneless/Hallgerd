@@ -5,33 +5,10 @@ from tqdm import tqdm
 
 from hallgerd.cl import MAT_CL_KERNELS
 from hallgerd.layers import Dense
+from hallgerd.losses import *
 
 
 SUPPORTED_LOSSES = ['mse', 'cross_entropy']
-
-
-def mse(yt, yp):
-    return np.linalg.norm(yt - yp)
-
-
-def mse_delta(yt, yp):
-    return 2 * (yt - yp)
-
-
-def softmax(x):
-    exps = np.exp(x - np.max(x))
-    return exps / np.sum(exps, axis=0)
-
-
-def cross_entropy(yt, yp):
-    p = softmax(yp)
-    loss = -np.sum(yt * p)
-    return loss
-
-
-def cross_entropy_delta(yt, yp):
-    p = softmax(yp)
-    return yt - yp
 
 
 class Sequential:
@@ -45,6 +22,16 @@ class Sequential:
         self.history = {}
         self.verbose = verbose
         self.layers = list()
+        platforms = cl.get_platforms()
+        if not platforms:
+            raise RuntimeError('No OpenCL platforms')
+        else:
+            p = platforms[0]
+            devices = p.get_devices()
+            if not devices:
+                raise RuntimeError('No OpenCL devices')
+            logging.info('utilizing  {}'.format(devices[0].name))
+        logging.debug('creating context')
         self.ctx = cl.create_some_context()
         self.queue = cl.CommandQueue(self.ctx)
         self.prg = cl.Program(self.ctx, MAT_CL_KERNELS).build()
@@ -54,29 +41,40 @@ class Sequential:
         self.layers.append(layer)
 
     def __call__(self, x):
+        logging.debug('evaluate for {}'.format(x.shape))
         _batches = x.shape[1]
         x = x.copy().astype(np.float64)
+        logging.debug('CL::start copy to device')
         x_cl = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=x)
+        logging.debug('CL::finished copy to device')
         for layer in self.layers:
             x_cl = layer(x_cl, batches=_batches)
         out_np = np.empty((self.layers[-1].out_shape, _batches), dtype=np.float64)
+        logging.debug('CL::start copy from device')
         cl.enqueue_copy(self.queue, out_np, x_cl)
+        logging.debug('CL::finished copy from device')
         return out_np
 
     def weights2cpu(self):
+        logging.info('CL::copy weights to host')
         for layer in self.layers:
             layer.__weight2cpu__()
         return True
 
     def backprop(self, y):
+        logging.debug('start backpropagation')
         y = y.copy().astype(np.float64)
+        logging.debug('CL::start copy from device')
         yp = np.empty((self.layers[-1].out_shape, y.shape[1]), dtype=np.float64)
         cl.enqueue_copy(self.queue, yp, self.layers[-1].output_cl)
+        logging.debug('CL::finished copy from device')
         if self.loss == 'mse':
             error = mse_delta(y, yp)
         if self.loss == 'cross_entropy':
             error = cross_entropy_delta(y, yp)
+        logging.debug('CL::start copy to device')
         error_cl = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE | cl.mem_flags.COPY_HOST_PTR, hostbuf=error)
+        logging.debug('CL::finished copy to device')
         for layer in reversed(self.layers):
             error_cl = layer.backprop(error_cl, self.lr)
         error_cl.release()
@@ -84,6 +82,7 @@ class Sequential:
 
     def fit(self, X, y):
         assert X.shape[1] == y.shape[1]
+        logging.info('fitting on {} data'.format(X.shape))
         num_batches = np.ceil(X.shape[1] / self.bs)
         self.history['loss'] = list()
         for _ in tqdm(range(self.epochs), disable=not self.verbose):
@@ -94,6 +93,7 @@ class Sequential:
                 loss = mse(y, self.__call__(X))
             if self.loss == 'cross_entropy':
                 loss = cross_entropy(y, self.__call__(X))
+            logging.info('train loss: {}'.format(loss))
             self.history['loss'].append(loss)
 
 
