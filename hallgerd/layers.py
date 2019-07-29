@@ -101,8 +101,8 @@ class Dense:
         N = self.in_shape
         N_cl = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=np.int64(N))
         self.prg.matmul(self.queue, (M, N), None, N_cl, K_cl, error_cl, x_t_cl, self.dweight_cl)
-        self.prg.scalar_dot(self.queue, (M*N,), None, self.dweight_cl, lr_cl)
-        self.prg.sum(self.queue, (M*N,), None, self.weight_cl, self.dweight_cl)
+        self.prg.scalar_dot(self.queue, (M * N,), None, self.dweight_cl, lr_cl)
+        self.prg.sum(self.queue, (M * N,), None, self.weight_cl, self.dweight_cl)
         N_cl.release()
         displt_cl.release()
         displ_cl.release()

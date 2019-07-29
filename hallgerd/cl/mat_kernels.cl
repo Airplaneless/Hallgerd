@@ -122,8 +122,6 @@ __kernel void relu(__global double * x)
     double buff = 0.0;
     if (x[i] > 0) {
         buff += x[i];
-    } else {
-        buff += x[i] * 0.01;
     }
     x[i] = buff;
 }
@@ -134,8 +132,6 @@ __kernel void d_relu(__global double * sx)
     double buff = 0.0;
     if (sx[i] > 0) {
         buff += 1.0;
-    } else {
-        buff += 0.01;
     }
     sx[i] = buff;
 }
@@ -143,7 +139,8 @@ __kernel void d_relu(__global double * sx)
 __kernel void d_softmax(__global double * sx)
 {
     size_t i = get_global_id(0);
-    sx[i] = sx[i] * (1 - sx[i]);
+    double buff = sx[i] * (1 - sx[i]);
+    sx[i] = buff;
 }
 
 __kernel void sigmoid(__global double * x)
@@ -156,5 +153,6 @@ __kernel void sigmoid(__global double * x)
 __kernel void d_sigmoid(__global double * sx)
 {
     size_t i = get_global_id(0);
-    sx[i] = sx[i] * (1 - sx[i]);
+    double buff = sx[i] * (1 - sx[i]);
+    sx[i] = buff;
 }

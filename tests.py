@@ -52,7 +52,8 @@ class TestCLkernels(unittest.TestCase):
     def test_relu(self):
 
         def relu(x):
-            return np.maximum(0, x)
+            x[x <= 0] = 0
+            return x
 
         ctx = cl.create_some_context()
         queue = cl.CommandQueue(ctx)

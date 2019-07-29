@@ -37,7 +37,7 @@ def cross_entropy_delta(yt, yp):
     dyt = yt.argmax(axis=0)
     grad = softmax(yp)
     grad[dyt, range(m)] -= 1
-    grad = grad / m
+    # grad = grad / m
     return -grad
 
 
@@ -98,9 +98,9 @@ class Sequential:
                 _ = self.__call__(x.T)
                 self.backprop(yt.T)
             if self.loss == 'mse':
-                loss = mse(y, self.__call__(X))
+                loss = mse(y, self.__call__(X)) / y.shape[1]
             if self.loss == 'cross_entropy':
-                loss = cross_entropy(y, self.__call__(X))
+                loss = cross_entropy(y, self.__call__(X)) / y.shape[1]
             self.history['loss'].append(loss)
 
 
