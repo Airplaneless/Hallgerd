@@ -74,6 +74,8 @@ class Dense:
             self.prg.sumreduce(self.queue, (M, N), None, self.output_cl, v_cl, M_cl, N_cl)
             self.prg.inverse(self.queue, (N,), None, v_cl)
             self.prg.dot2(self.queue, (M, N), None, self.output_cl, v_cl)
+            max_cl.release()
+            v_cl.release()
         M_cl.release()
         K_cl.release()
         N_cl.release()

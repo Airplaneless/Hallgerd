@@ -14,30 +14,18 @@ def mse_delta(yt, yp):
 
 def softmax(x):
     exps = np.exp(x - np.max(x))
-    return exps / np.sum(exps, axis=0)
-
-
-def _softmax(X):
-    expvx = np.exp(X - np.max(X, axis=1)[..., np.newaxis])
-    return expvx/np.sum(expvx, axis=1, keepdims=True)
+    return exps / np.sum(exps)
 
 
 def cross_entropy(yt, yp):
-    m = yt.shape[1]
-    dyt = yt.argmax(axis=0)
-    p = softmax(yp)
-    log_likelihood = - np.log(p[dyt, range(m)])
-    loss = np.sum(log_likelihood) / m
+    # p = softmax(yp)
+    loss = -np.sum(yt * yp)
     return loss
 
 
 def cross_entropy_delta(yt, yp):
-    m = yt.shape[1]
-    dyt = yt.argmax(axis=0)
-    grad = softmax(yp)
-    grad[dyt, range(m)] -= 1
-    # grad = grad / m
-    return -grad
+    p = softmax(yp)
+    return yt - yp
 
 
 class Sequential:
@@ -79,7 +67,7 @@ class Sequential:
                 _ = self.__call__(x.T)
                 self.backprop(yt.T)
             if self.loss == 'mse':
-                loss = mse(y, self.__call__(X)) / y.shape[1]
+                loss = mse(y, self.__call__(X))
             if self.loss == 'cross_entropy':
-                loss = cross_entropy(y, self.__call__(X)) / y.shape[1]
+                loss = cross_entropy(y, self.__call__(X))
             self.history['loss'].append(loss)
