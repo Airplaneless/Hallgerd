@@ -6,6 +6,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 
 from hallgerd.classic import *
+from hallgerd.core import Sequential
+from hallgerd.layers import Dense
+
+from gunnar.core import Device, Array
 
 
 os.environ['PYOPENCL_CTX'] = '0'
@@ -15,7 +19,124 @@ def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
 
+class TestGunnar(unittest.TestCase):
+
+    def test_sum(self):
+        devices = Device.getDevices()
+        device = list(devices.keys())[0]
+        gpu = Device([devices[device]])
+        A = np.random.randn(690, 69).astype(np.float32)
+        B = np.random.randn(690, 69).astype(np.float32)
+        clA = gpu.array(A)
+        clB = gpu.array(B)
+        clC = clA + clB
+        C = clC.to_cpu()
+        score = np.linalg.norm((A+B) - C)
+        self.assertLess(score, 0.1, msg='Wrong mat sum')
+
+    def test_transpose(self):
+        devices = Device.getDevices()
+        device = list(devices.keys())[0]
+        gpu = Device([devices[device]])
+        A = np.random.randn(628, 128).astype(np.float32)
+        clA = gpu.array(A)
+        clB = clA.transpose()
+        B = clB.to_cpu()
+        score = np.linalg.norm(A.T - B)
+        self.assertLess(score, 0.1, msg='Wrong transpose')
+
+    def test_mmul(self):
+        devices = Device.getDevices()
+        device = list(devices.keys())[0]
+        gpu = Device([devices[device]])
+        A = np.random.randn(420, 69).astype(np.float32)
+        B = np.random.randn(69, 228).astype(np.float32)
+        clA = gpu.array(A)
+        clB = gpu.array(B)
+        clC = clB ** clA.transpose()
+        C = clC.to_cpu()
+        score = np.linalg.norm(np.matmul(A, B) - C)
+        self.assertLess(score, 0.1, msg='Wrong matmul')
+
+    def test_dot(self):
+        devices = Device.getDevices()
+        device = list(devices.keys())[0]
+        gpu = Device([devices[device]])
+        A = np.random.randn(690, 109).astype(np.float32)
+        B = np.random.randn(690, 109).astype(np.float32)
+        clA = gpu.array(A)
+        clB = gpu.array(B)
+        clC = clA * clB
+        C = clC.to_cpu()
+        score = np.linalg.norm((A*B) - C)
+        self.assertLess(score, 0.1, msg='Wrong mat sum')
+
+    def test_scale(self):
+        devices = Device.getDevices()
+        device = list(devices.keys())[0]
+        gpu = Device([devices[device]])
+        A = np.random.randn(628, 128).astype(np.float32)
+        s = 42
+        clA = gpu.array(A)
+        clB = clA.scale(s)
+        B = clB.to_cpu()
+        score = np.linalg.norm(A * s - B)
+        self.assertLess(score, 0.1, msg='Wrong transpose')
+
+    def test_sumcol(self):
+        devices = Device.getDevices()
+        device = list(devices.keys())[0]
+        gpu = Device([devices[device]])
+        # A = np.zeros((10, 128)).astype(np.float32)
+        # B = np.arange(10).reshape((-1,1)).astype(np.float32)
+        A = np.random.randn(420, 28).astype(np.float32)
+        B = np.random.randn(420, 1).astype(np.float32)
+        clA = gpu.array(A)
+        clB = gpu.array(B)
+        clC = clA < clB
+        C = clC.to_cpu()
+        score = np.linalg.norm((A + B) - C)
+        self.assertLess(score, 0.1, msg='Wrong sumcol')
+
+
+
 class TestCLkernels(unittest.TestCase):
+
+    def test_fast_mmul(self):
+        # M % TSM = 0 and N % TSN = 0
+        # TSM % 2 = 0 and TSN % 2 = 0
+        # M % (WPTM * WPTM) = 0 and N % (WPTN * WPTN) = 0
+        # TSM % WPTM = 0 and TSN % WPTN = 0
+        M = np.int32(256)
+        K = np.int32(64)
+        N = np.int32(256)
+        TSM = 128
+        TSN = 128
+        TSK = 16
+        WPTM = 8
+        WPTN = 8
+        ctx = cl.create_some_context()
+        queue = cl.CommandQueue(ctx)
+        options = "-DTSM={} -DTSN={} -DTSK={} -DWPTM={} -DWPTN={}".format(TSM, TSN, TSK, WPTM, WPTN)
+        prg = cl.Program(ctx, MAT_KERNELS).build(options)
+        np.random.seed(42)
+        A = np.random.randn(K, M).astype(np.float32)
+        B = np.random.randn(K, N).astype(np.float32)
+        CC = np.matmul(B.T, A)
+
+        C = np.empty((N, M), dtype=np.float32)
+        A_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=A)
+        B_cl = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=B)
+        C_cl = cl.Buffer(ctx, cl.mem_flags.WRITE_ONLY, size=C.nbytes)
+        global_sizes = (M // WPTM + 2 * (M % 2), N // WPTN + 2 * (N % 2))
+        local_sizes = (TSM // WPTM, TSN // WPTN)
+        print(global_sizes, local_sizes)
+        event = prg.matmul(queue, global_sizes, local_sizes, M, N, K, A_cl, B_cl, C_cl)
+        cl.wait_for_events([event,])
+        event = cl.enqueue_copy(queue, C, C_cl)
+        cl.wait_for_events([event,])
+        score = np.linalg.norm(C - CC)
+        self.assertLess(score, 0.1, msg='wrong fmmul')
 
     def test_softmax(self):
 
@@ -201,7 +322,6 @@ class TestCLkernels(unittest.TestCase):
         cl.enqueue_copy(queue, x_t, x_t_cl)
         self.assertGreater(1e-2, np.linalg.norm(x_t - x.T), msg='matrix transpose wrong')
 
-
     def test_vmmul(self):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -279,7 +399,26 @@ class TestModels(unittest.TestCase):
         clf.fit(X_train, y_train)
         y_pred = clf.predict(X_test)
         score = accuracy_score(y_test, y_pred)
-        self.assertGreater(score, 0.7, msg='LogReg underfit')
+        self.assertGreater(score, 0.8, msg='LogReg underfit')
+
+    def test_mlp_classifier(self):
+        from sklearn.preprocessing import OneHotEncoder, MinMaxScaler, StandardScaler
+        from sklearn.metrics import classification_report, accuracy_score
+        X, y = make_classification(n_samples=10000, n_features=200, n_informative=200, n_redundant=0, n_classes=5)
+        y = OneHotEncoder(sparse=False, categories='auto').fit_transform(y.reshape((-1,1)))
+        X = StandardScaler().fit_transform(X)
+        y = y.T
+        X = X.T
+        model = Sequential(lr=1e-3, batch_size=1024, epochs=40, loss='cross_entropy')
+        model.add(Dense(200, 200, activation='relu'))
+        model.add(Dense(200, 5, activation='softmax'))
+        model.fit(X, y) 
+        yt = y.argmax(axis=0)
+        ypp = model(X)
+        yp = ypp.argmax(axis=0)
+        score = accuracy_score(yt, yp)
+        self.assertGreater(score, 0.8, msg='MLP wrong')
+    
         
 
 if __name__ == "__main__":
