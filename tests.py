@@ -1,104 +1,211 @@
-import os
 import unittest
-import warnings
 import numpy as np
-import pyopencl as cl
 
 from sklearn.datasets import make_classification
-from sklearn.model_selection import cross_val_score, train_test_split
-from sklearn.metrics import accuracy_score
 
-import hallgerd
-from hallgerd import GD_CL_KERNELS
-from hallgerd.linear import LogisticRegressionCL
+from hallgerd.core import Sequential
+from hallgerd.layers import Dense
+from gunnar.core import Device, Array
 
 
-os.environ['PYOPENCL_CTX'] = '0'
+def softmax(x):
+    return np.exp(x - np.max(x)) / np.sum(np.exp(x - np.max(x)), axis=0)
 
 
-class TestCLkernels(unittest.TestCase):
-    
-    def test_vmmul(self):
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            ctx = cl.create_some_context()
-            queue = cl.CommandQueue(ctx)
-            kernel = open(GD_CL_KERNELS).read()
-            prg = cl.Program(ctx, kernel).build()
+def d_softmax(sx):
+    return sx * (1 - sx)
 
-            w_h = np.random.random(200).astype(np.float32)
-            X_h = np.random.random((200, 109000)).astype(np.float32)
-            r_h = np.empty(109000, dtype=np.float32)
 
-            rr = np.dot(w_h, X_h)
+def relu(x):
+    x[x <= 0] = 0
+    return x
 
-            X_size_h = X_h.shape[0]
-            nworkers = X_h.shape[1]
-            X_h = X_h.flatten('F')
 
-            w_g = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=w_h)
-            X_g = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=X_h)
-            r_g = cl.Buffer(ctx, cl.mem_flags.WRITE_ONLY, size=r_h.nbytes)
-            X_size_g = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=np.int64(X_size_h))
+def d_relu(x):
+    x = relu(x)
+    x[x > 0] = 1.0
+    return x
 
-            prg.vmmul(queue, (nworkers,), None, w_g, X_g, r_g, X_size_g)
-            cl.enqueue_copy(queue, r_h, r_g)
-            self.assertGreater(1e-2, np.linalg.norm(r_h - rr), msg='vector-matrix product wrong')
 
-    def test_log_grad(self):
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            ctx = cl.create_some_context()
-            queue = cl.CommandQueue(ctx)
-            kernel = open(GD_CL_KERNELS).read()
-            prg = cl.Program(ctx, kernel).build()
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
 
-            w_h = np.random.random(200).astype(np.float32)
-            X_h = np.random.random((109000, 200)).astype(np.float32)
-            y_h = np.random.random(109000).astype(np.float32)
-            R_h = np.empty_like(X_h.T)
-            dw_h = np.empty_like(w_h)
 
-            mm = (X_h.T * y_h) * (1 - 1 / (1 + np.exp(-np.dot(X_h, w_h)*y_h)))
-            res = np.sum(mm, axis=1)
-            X_h = X_h.T
+def d_sigmoid(sx):
+    return sx * (1 - sx)
 
-            displ1_h = np.int64(X_h.shape[0])
-            displ2_h = np.int64(X_h.shape[1])
-            nworkers1 = X_h.shape[1]
-            nworkers2 = X_h.shape[0]
-            # print(displ1_h, nworkers1)
-            X_h = X_h.flatten('F')
 
-            w_g = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=w_h)
-            X_g = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=X_h)
-            y_g = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=y_h)
-            R_g = cl.Buffer(ctx, cl.mem_flags.READ_WRITE, size=R_h.nbytes)
-            displ1_g = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=displ1_h)
-            displ2_g = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=displ2_h)
-            dw_g = cl.Buffer(ctx, cl.mem_flags.WRITE_ONLY, size=dw_h.nbytes)
+class TestGunnar(unittest.TestCase):
 
-            prg.wgrad(queue, (nworkers1,), None, w_g, X_g, y_g, displ1_g, R_g)
-            prg.mreduction(queue, (nworkers2,), None, R_g, displ1_g, displ2_g, dw_g)
+    def test_sigmoid(self):
+        devices = Device.getDevices()
+        device = list(devices.keys())[0]
+        gpu = Device([devices[device]])
+        A = np.random.randn(69, 690)
+        clA = gpu.array(A)
+        clC = Array.sigmoid(clA)
+        C = clC.to_cpu()
+        score = np.linalg.norm(sigmoid(A) - C)
+        self.assertLess(score, 0.1, msg='Wrong sigmoid')
 
-            cl.enqueue_copy(queue, dw_h, dw_g)
-            queue.finish()
-            
-            self.assertGreater(1e-2, np.linalg.norm(res - dw_h)) 
+    def test_dsigmoid(self):
+        devices = Device.getDevices()
+        device = list(devices.keys())[0]
+        gpu = Device([devices[device]])
+        A = np.random.randn(69, 690)
+        clA = gpu.array(A)
+        clC = Array.dsigmoid(clA)
+        C = clC.to_cpu()
+        score = np.linalg.norm(d_sigmoid(A) - C)
+        self.assertLess(score, 0.1, msg='Wrong dsigmoid')
+
+    def test_relu(self):
+        devices = Device.getDevices()
+        device = list(devices.keys())[0]
+        gpu = Device([devices[device]])
+        A = np.random.randn(69, 690)
+        clA = gpu.array(A)
+        clC = Array.relu(clA)
+        C = clC.to_cpu()
+        score = np.linalg.norm(relu(A) - C)
+        self.assertLess(score, 0.1, msg='Wrong relu')
+
+    def test_drelu(self):
+        devices = Device.getDevices()
+        device = list(devices.keys())[0]
+        gpu = Device([devices[device]])
+        A = np.random.randn(69, 690)
+        clA = gpu.array(A)
+        clC = Array.drelu(clA)
+        C = clC.to_cpu()
+        score = np.linalg.norm(d_relu(A) - C)
+        self.assertLess(score, 0.1, msg='Wrong drelu')
+
+    def test_softmax(self):
+        devices = Device.getDevices()
+        device = list(devices.keys())[0]
+        gpu = Device([devices[device]])
+        A = np.random.randn(690, 69)
+        clA = gpu.array(A)
+        clC = Array.softmax(clA)
+        C = clC.to_cpu()
+        score = np.linalg.norm(softmax(A) - C)
+        self.assertLess(score, 0.1, msg='Wrong softmax')
+
+    def test_dsoftmax(self):
+        devices = Device.getDevices()
+        device = list(devices.keys())[0]
+        gpu = Device([devices[device]])
+        A = np.random.randn(69, 690)
+        clA = gpu.array(A)
+        clC = Array.dsoftmax(clA)
+        C = clC.to_cpu()
+        score = np.linalg.norm(d_softmax(A) - C)
+        self.assertLess(score, 0.1, msg='Wrong dsoftmax')
+
+    def test_sum(self):
+        devices = Device.getDevices()
+        device = list(devices.keys())[0]
+        gpu = Device([devices[device]])
+        A = np.random.randn(69, 690).astype(np.float32)
+        B = np.random.randn(69, 690).astype(np.float32)
+        clA = gpu.array(A)
+        clB = gpu.array(B)
+        clC = clA + clB
+        C = clC.to_cpu()
+        score = np.linalg.norm((A+B) - C)
+        self.assertLess(score, 0.1, msg='Wrong mat sum')
+
+    def test_transpose(self):
+        devices = Device.getDevices()
+        device = list(devices.keys())[0]
+        gpu = Device([devices[device]])
+        A = np.random.randn(700, 100).astype(np.float32)
+        clA = gpu.array(A)
+        clB = clA.transpose()
+        B = clB.to_cpu()
+        score = np.linalg.norm(A.T - B)
+        self.assertLess(score, 0.1, msg='Wrong transpose')
+
+    def test_mmul(self):
+        devices = Device.getDevices()
+        device = list(devices.keys())[0]
+        gpu = Device([devices[device]])
+        A = np.random.randn(420, 690).astype(np.float32)
+        B = np.random.randn(690, 228).astype(np.float32)
+        clA = gpu.array(A)
+        clB = gpu.array(B)
+        clC = clB @ clA.transpose()
+        C = clC.to_cpu()
+        score = np.linalg.norm(np.matmul(A, B) - C)
+        self.assertLess(score, 0.1, msg='Wrong matmul')
+
+    def test_dot(self):
+        devices = Device.getDevices()
+        device = list(devices.keys())[0]
+        gpu = Device([devices[device]])
+        A = np.random.randn(690, 109)
+        B = np.random.randn(690, 109)
+        clA = gpu.array(A)
+        clB = gpu.array(B)
+        clC = clA * clB
+        C = clC.to_cpu()
+        score = np.linalg.norm((A*B) - C)
+        self.assertLess(score, 0.1, msg='Wrong mat sum')
+
+    def test_scale(self):
+        devices = Device.getDevices()
+        device = list(devices.keys())[0]
+        gpu = Device([devices[device]])
+        A = np.random.randn(628, 128)
+        s = 42
+        clA = gpu.array(A)
+        clB = clA.scale(s)
+        B = clB.to_cpu()
+        score = np.linalg.norm(A * s - B)
+        self.assertLess(score, 0.1, msg='Wrong scale')
+
+    def test_sumcol(self):
+        devices = Device.getDevices()
+        device = list(devices.keys())[0]
+        gpu = Device([devices[device]])
+        # A = np.zeros((10, 128)).astype(np.float32)
+        # B = np.arange(10).reshape((-1,1)).astype(np.float32)
+        A = np.random.randn(420, 28).astype(np.float32)
+        B = np.random.randn(420, 1).astype(np.float32)
+        clA = gpu.array(A)
+        clB = gpu.array(B)
+        clC = clA % clB
+        C = clC.to_cpu()
+        score = np.linalg.norm((A + B) - C)
+        self.assertLess(score, 0.1, msg='Wrong sumcol')
+
 
 class TestModels(unittest.TestCase):
+
+    def test_mlp_classifier(self):
+        from sklearn.preprocessing import OneHotEncoder, MinMaxScaler, StandardScaler
+        from sklearn.metrics import classification_report, accuracy_score
+        X, y = make_classification(n_samples=10000, n_features=200, n_informative=200, n_redundant=0, n_classes=5)
+        y = OneHotEncoder(sparse=False, categories='auto').fit_transform(y.reshape((-1,1)))
+        X = StandardScaler().fit_transform(X)
+        y = y.T
+        X = X.T
+        devices = Device.getDevices()
+        names = [k for k in devices]
+        assert names
+        cldevice = Device([devices[names[0]]])
+        model = Sequential(device=cldevice, lr=1e-3, batch_size=1024, epochs=40, loss='cross_entropy', verbose=True)
+        model.add(Dense(200, 200, activation='relu'))
+        model.add(Dense(200, 5, activation='softmax'))
+        model.fit(X, y) 
+        yt = y.argmax(axis=0)
+        ypp = model(X)
+        yp = ypp.argmax(axis=0)
+        score = accuracy_score(yt, yp)
+        self.assertGreater(score, 0.8, msg='MLP wrong')
     
-    def test_sgd_classifier(self):
-        X, y = make_classification(n_samples=1000, random_state=42)
-        y[y == 0] = -1
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, random_state=42)
-        clf = LogisticRegressionCL(verbose=False)
-        clf.fit(X_train, y_train)
-        y_pred = clf.predict(X_test)
-        score = accuracy_score(y_test, y_pred)
-        self.assertGreater(score, 0.7, msg='LogReg underfit')
-
-
+        
 
 if __name__ == "__main__":
-     unittest.main()
+    unittest.main()
