@@ -1,4 +1,4 @@
-#define floatX float
+#define floatX double
 #define RTSM (TSM/WPTM)
 #define RTSN (TSN/WPTN)
 #define LPTA ((TSK*TSM)/(RTSM*RTSN))
@@ -244,17 +244,6 @@ __kernel void matscale(const int M,
     if (ID0 < M && ID1 < N) {
         C[ID1 * M + ID0] = bufferA[tx][ty] * B;
     }
-}
-
-
-__kernel void max(const int M,
-                  const int N,
-                  __global floatX * A,
-                  __global floatX * C)
-{
-    const int i = get_global_id(0);
-    const int j = get_global_id(1);
-    C[i] = work_group_reduce_max(A[i + 2*M]);
 }
 
 
