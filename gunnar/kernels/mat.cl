@@ -1,15 +1,16 @@
+#define floatX float
 #define RTSM (TSM/WPTM)
 #define RTSN (TSN/WPTN)
 #define LPTA ((TSK*TSM)/(RTSM*RTSN))
 #define LPTB ((TSK*TSN)/(RTSM*RTSN))
 
-
+// MAT OPERATORS
 __kernel void matmul(const int M, 
                      const int N, 
                      const int K,
-                     const __global float * A,
-                     const __global float * B,
-                     __global float * C) 
+                     __global floatX * A,
+                     __global floatX * B,
+                     __global floatX * C)
 {
     // Thread identifiers
     const int tidm = get_local_id(0); // Local row ID (max: TSM/WPTM)
@@ -18,13 +19,13 @@ __kernel void matmul(const int M,
     const int offsetN = TSN * get_group_id(1); // Work-group offset
  
     // Local memory to fit a tile of A and B
-    __local float Asub[TSK][TSM];
-    __local float Bsub[TSN][TSK+2];
+    __local floatX Asub[TSK][TSM];
+    __local floatX Bsub[TSN][TSK+2];
  
     // Allocate register space
-    float Areg;
-    float Breg[WPTN];
-    float acc[WPTM][WPTN];
+    floatX Areg;
+    floatX Breg[WPTN];
+    floatX acc[WPTM][WPTN];
  
     // Initialise the accumulation registers
     for (int wm = 0; wm < WPTM; ++wm) {
@@ -88,8 +89,8 @@ __kernel void matmul(const int M,
 
 
 __kernel void transpose(const int P, const int Q,
-                        const __global float* input,
-                        __global float* output) {
+                        __global floatX * input,
+                        __global floatX * output) {
 
     // Thread identifiers
     const int tx = get_local_id(0);
@@ -98,7 +99,7 @@ __kernel void transpose(const int P, const int Q,
     const int ID1 = get_group_id(1) * TSK + ty; // 0..Q
 
     // Set-up the local memory for shuffling
-    __local float buffer[TSK][TSK];
+    __local floatX buffer[TSK][TSK];
 
     // Swap the x and y coordinates to perform the rotation (coalesced)
     if (ID0 < P && ID1 < Q) {
@@ -122,9 +123,9 @@ __kernel void transpose(const int P, const int Q,
 
 __kernel void matsum(const int M, 
                      const int N, 
-                     const __global float * A,
-                     const __global float * B,
-                     __global float * C)
+                     __global floatX * A,
+                     __global floatX * B,
+                     __global floatX * C)
 {
      // Thread identifiers
     const int tx = get_local_id(0);
@@ -133,8 +134,8 @@ __kernel void matsum(const int M,
     const int ID1 = get_group_id(1) * TSK + ty; // 0..N
  
     // Set-up the local memory for shuffling
-    __local float bufferA[TSK][TSK];
-    __local float bufferB[TSK][TSK];
+    __local floatX bufferA[TSK][TSK];
+    __local floatX bufferB[TSK][TSK];
  
     // Swap the x and y coordinates to perform the rotation (coalesced)
     if (ID0 < M && ID1 < N) {
@@ -154,9 +155,9 @@ __kernel void matsum(const int M,
 
 __kernel void matsubstract(const int M, 
                            const int N, 
-                           const __global float * A,
-                           const __global float * B,
-                           __global float * C)
+                           __global floatX * A,
+                           __global floatX * B,
+                           __global floatX * C)
 {
     // // Thread identifiers
     const int tx = get_local_id(0);
@@ -165,8 +166,8 @@ __kernel void matsubstract(const int M,
     const int ID1 = get_group_id(1) * TSK + ty; // 0..N
  
     // Set-up the local memory for shuffling
-    __local float bufferA[TSK][TSK];
-    __local float bufferB[TSK][TSK];
+    __local floatX bufferA[TSK][TSK];
+    __local floatX bufferB[TSK][TSK];
  
     // Swap the x and y coordinates to perform the rotation (coalesced)
     if (ID0 < M && ID1 < N) {
@@ -186,9 +187,9 @@ __kernel void matsubstract(const int M,
 
 __kernel void matdot(const int M, 
                      const int N, 
-                     const __global float * A,
-                     const __global float * B,
-                     __global float * C)
+                     __global floatX * A,
+                     __global floatX * B,
+                     __global floatX * C)
 {
     // // Thread identifiers
     const int tx = get_local_id(0);
@@ -197,8 +198,8 @@ __kernel void matdot(const int M,
     const int ID1 = get_group_id(1) * TSK + ty; // 0..N
  
     // Set-up the local memory for shuffling
-    __local float bufferA[TSK][TSK];
-    __local float bufferB[TSK][TSK];
+    __local floatX bufferA[TSK][TSK];
+    __local floatX bufferB[TSK][TSK];
  
     // Swap the x and y coordinates to perform the rotation (coalesced)
     if (ID0 < M && ID1 < N) {
@@ -218,9 +219,9 @@ __kernel void matdot(const int M,
 
 __kernel void matscale(const int M, 
                        const int N, 
-                       const __global float * A,
-                       const float B,
-                       __global float * C)
+                       __global floatX * A,
+                       const floatX B,
+                       __global floatX * C)
 {
     // // Thread identifiers
     const int tx = get_local_id(0);
@@ -229,16 +230,16 @@ __kernel void matscale(const int M,
     const int ID1 = get_group_id(1) * TSK + ty; // 0..N
  
     // Set-up the local memory for shuffling
-    __local float bufferA[TSK][TSK];
+    __local floatX bufferA[TSK][TSK];
  
     // Swap the x and y coordinates to perform the rotation (coalesced)
     if (ID0 < M && ID1 < N) {
         bufferA[tx][ty] = A[ID1 * M + ID0];
     }
- 
+
     // Synchronise all threads
     barrier(CLK_LOCAL_MEM_FENCE);
-  
+
     // Store the sum result (coalesced)
     if (ID0 < M && ID1 < N) {
         C[ID1 * M + ID0] = bufferA[tx][ty] * B;
@@ -246,12 +247,23 @@ __kernel void matscale(const int M,
 }
 
 
+__kernel void max(const int M,
+                  const int N,
+                  __global floatX * A,
+                  __global floatX * C)
+{
+    const int i = get_global_id(0);
+    const int j = get_global_id(1);
+    C[i] = work_group_reduce_max(A[i + 2*M]);
+}
+
+
 __kernel void matpluscol(const int M,
                          const int N,
                          const int K,
-                         const __global float * A,
-                         const __global float * b,
-                         __global float * C)
+                         __global floatX * A,
+                         __global floatX * b,
+                         __global floatX * C)
 {
     // // Thread identifiers
     const int tx = get_local_id(0);
@@ -265,20 +277,154 @@ __kernel void matpluscol(const int M,
     }
 }
 
-
-__kernel void cmatmul(const int M,
+// Activations and derivatives
+__kernel void sigmoid(const int M,
                       const int N,
-                      const int K,
-                      __global float * A,
-                      __global float * B,
-                      __global float * C)
+                      __global floatX * A,
+                      __global floatX * B)
 {
-    size_t i = get_global_id(0);
-    size_t j = get_global_id(1);
-    float res = 0.0;
-    for (size_t k = 0; k < K; ++k) {
-        res += A[k + i * K] * B[j + k * N];
+    // // Thread identifiers
+    const int tx = get_local_id(0);
+    const int ty = get_local_id(1);
+    const int ID0 = get_group_id(0) * TSK + tx; // 0..M
+    const int ID1 = get_group_id(1) * TSK + ty; // 0..N
+
+    // Set-up the local memory for shuffling
+    __local floatX bufferA[TSK][TSK];
+
+    // Swap the x and y coordinates to perform the rotation (coalesced)
+    if (ID0 < M && ID1 < N) {
+        bufferA[tx][ty] = A[ID1 * M + ID0];
     }
 
-    C[j + i * N] = res;
+    // Synchronise all threads
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    // Store the sum result (coalesced)
+    if (ID0 < M && ID1 < N) {
+        B[ID1 * M + ID0] = 1 / (1 + exp(-bufferA[tx][ty]));
+    }
+}
+
+__kernel void dsigmoid(const int M,
+                       const int N,
+                       __global floatX * A,
+                       __global floatX * B)
+{
+    // // Thread identifiers
+    const int tx = get_local_id(0);
+    const int ty = get_local_id(1);
+    const int ID0 = get_group_id(0) * TSK + tx; // 0..M
+    const int ID1 = get_group_id(1) * TSK + ty; // 0..N
+
+    // Set-up the local memory for shuffling
+    __local floatX bufferA[TSK][TSK];
+
+    // Swap the x and y coordinates to perform the rotation (coalesced)
+    if (ID0 < M && ID1 < N) {
+        bufferA[tx][ty] = A[ID1 * M + ID0];
+    }
+
+    // Synchronise all threads
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    // Store the sum result (coalesced)
+    if (ID0 < M && ID1 < N) {
+        B[ID1 * M + ID0] = bufferA[tx][ty] * (1 - bufferA[tx][ty]);
+    }
+}
+
+
+__kernel void relu(const int M,
+                   const int N,
+                   __global floatX * A,
+                   __global floatX * B)
+{
+    // // Thread identifiers
+    const int tx = get_local_id(0);
+    const int ty = get_local_id(1);
+    const int ID0 = get_group_id(0) * TSK + tx; // 0..M
+    const int ID1 = get_group_id(1) * TSK + ty; // 0..N
+
+    // Set-up the local memory for shuffling
+    __local floatX bufferA[TSK][TSK];
+
+    // Swap the x and y coordinates to perform the rotation (coalesced)
+    if (ID0 < M && ID1 < N) {
+        bufferA[tx][ty] = A[ID1 * M + ID0];
+    }
+
+    // Synchronise all threads
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    // Store the sum result (coalesced)
+    if (ID0 < M && ID1 < N) {
+        if (bufferA[tx][ty] > 0) {
+            B[ID1 * M + ID0] = bufferA[tx][ty];
+        } else {
+            B[ID1 * M + ID0] = 0;
+        }
+    }
+}
+
+
+__kernel void drelu(const int M,
+                    const int N,
+                    __global floatX * A,
+                    __global floatX * B)
+{
+    // // Thread identifiers
+    const int tx = get_local_id(0);
+    const int ty = get_local_id(1);
+    const int ID0 = get_group_id(0) * TSK + tx; // 0..M
+    const int ID1 = get_group_id(1) * TSK + ty; // 0..N
+
+    // Set-up the local memory for shuffling
+    __local floatX bufferA[TSK][TSK];
+
+    // Swap the x and y coordinates to perform the rotation (coalesced)
+    if (ID0 < M && ID1 < N) {
+        bufferA[tx][ty] = A[ID1 * M + ID0];
+    }
+
+    // Synchronise all threads
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    // Store the sum result (coalesced)
+    if (ID0 < M && ID1 < N) {
+        if (bufferA[tx][ty] > 0) {
+            B[ID1 * M + ID0] = 1.0;
+        } else {
+            B[ID1 * M + ID0] = 0.0;
+        }
+    }
+}
+
+
+__kernel void dsoftmax(const int M,
+                       const int N,
+                       __global floatX * A,
+                       __global floatX * B)
+{
+    // // Thread identifiers
+    const int tx = get_local_id(0);
+    const int ty = get_local_id(1);
+    const int ID0 = get_group_id(0) * TSK + tx; // 0..M
+    const int ID1 = get_group_id(1) * TSK + ty; // 0..N
+
+    // Set-up the local memory for shuffling
+    __local floatX bufferA[TSK][TSK];
+
+    // Swap the x and y coordinates to perform the rotation (coalesced)
+    if (ID0 < M && ID1 < N) {
+        bufferA[tx][ty] = A[ID1 * M + ID0];
+    }
+
+    // Synchronise all threads
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    // Store the sum result (coalesced)
+    if (ID0 < M && ID1 < N) {
+        B[ID1 * M + ID0] = bufferA[tx][ty] * (1 - bufferA[tx][ty]);
+    }
 }

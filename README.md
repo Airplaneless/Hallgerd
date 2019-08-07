@@ -1,17 +1,19 @@
-# Draft of ML algorhitms with OpenCL
+# Hallgerd
+### Deep learning framework for OpenCL
 
-## 1. Logistic regression
+Draft of dl framework for OpenCL.
+There is only Dense layer for now.
 
-Comparison with sklearn implementation with sag solver:
-    
-    $ python3 benchmarks.py --nsamples 200000 --nfeatures 300
-    using  Intel(R) OpenCL HD Graphics
-    Training and evaluation on dataset:
-        200000  samples
-        300  features
-    ### LogRegCL, 500 iter ###
-        acc:  0.911025 
-        time:  33.094815254211426
-    ### LogReg with SAG solver, 500 iter ###
-        acc:  0.9124875 
-        time:  58.88489103317261
+Usage:
+
+        from hallgerd.core import Sequential
+        from hallgerd.layers import Dense
+        from gunnar.core import Device, Array
+        
+        devices = Device.getDevices()
+        names = [k for k in devices]
+        device = Device([devices[names[0]]])
+        model = Sequential(device=device, lr=1e-3, batch_size=1024, epochs=40, loss='cross_entropy', verbose=True)
+        model.add(Dense(200, 200, activation='relu'))
+        model.add(Dense(200, 5, activation='softmax'))
+        model.fit(X, y) 
