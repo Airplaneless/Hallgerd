@@ -94,11 +94,11 @@ __kernel void transpose(const int P, const int Q,
     // Thread identifiers
     const int tx = get_local_id(0);
     const int ty = get_local_id(1);
-    const int ID0 = get_group_id(0) * TSK + tx; // 0..P
-    const int ID1 = get_group_id(1) * TSK + ty; // 0..Q
+    const int ID0 = get_group_id(0) * TS + tx; // 0..P
+    const int ID1 = get_group_id(1) * TS + ty; // 0..Q
 
     // Set-up the local memory for shuffling
-    __local floatX buffer[TSK][TSK];
+    __local floatX buffer[TS][TS];
 
     // Swap the x and y coordinates to perform the rotation (coalesced)
     if (ID0 < P && ID1 < Q) {
@@ -110,8 +110,8 @@ __kernel void transpose(const int P, const int Q,
 
     // We don't have to swap the x and y thread indices here,
     // because that's already done in the local memory
-    const int newID0 = get_group_id(1) * TSK + tx;
-    const int newID1 = get_group_id(0) * TSK + ty;
+    const int newID0 = get_group_id(1) * TS + tx;
+    const int newID1 = get_group_id(0) * TS + ty;
 
     // Store the transposed result (coalesced)
     if (newID0 < Q && newID1 < P) {
@@ -129,12 +129,12 @@ __kernel void matsum(const int M,
      // Thread identifiers
     const int tx = get_local_id(0);
     const int ty = get_local_id(1);
-    const int ID0 = get_group_id(0) * TSK + tx; // 0..M
-    const int ID1 = get_group_id(1) * TSK + ty; // 0..N
+    const int ID0 = get_group_id(0) * TS + tx; // 0..M
+    const int ID1 = get_group_id(1) * TS + ty; // 0..N
  
     // Set-up the local memory for shuffling
-    __local floatX bufferA[TSK][TSK];
-    __local floatX bufferB[TSK][TSK];
+    __local floatX bufferA[TS][TS];
+    __local floatX bufferB[TS][TS];
  
     // Swap the x and y coordinates to perform the rotation (coalesced)
     if (ID0 < M && ID1 < N) {
@@ -161,12 +161,12 @@ __kernel void matsubstract(const int M,
     // // Thread identifiers
     const int tx = get_local_id(0);
     const int ty = get_local_id(1);
-    const int ID0 = get_group_id(0) * TSK + tx; // 0..M
-    const int ID1 = get_group_id(1) * TSK + ty; // 0..N
+    const int ID0 = get_group_id(0) * TS + tx; // 0..M
+    const int ID1 = get_group_id(1) * TS + ty; // 0..N
  
     // Set-up the local memory for shuffling
-    __local floatX bufferA[TSK][TSK];
-    __local floatX bufferB[TSK][TSK];
+    __local floatX bufferA[TS][TS];
+    __local floatX bufferB[TS][TS];
  
     // Swap the x and y coordinates to perform the rotation (coalesced)
     if (ID0 < M && ID1 < N) {
@@ -193,12 +193,12 @@ __kernel void matdot(const int M,
     // // Thread identifiers
     const int tx = get_local_id(0);
     const int ty = get_local_id(1);
-    const int ID0 = get_group_id(0) * TSK + tx; // 0..M
-    const int ID1 = get_group_id(1) * TSK + ty; // 0..N
+    const int ID0 = get_group_id(0) * TS + tx; // 0..M
+    const int ID1 = get_group_id(1) * TS + ty; // 0..N
  
     // Set-up the local memory for shuffling
-    __local floatX bufferA[TSK][TSK];
-    __local floatX bufferB[TSK][TSK];
+    __local floatX bufferA[TS][TS];
+    __local floatX bufferB[TS][TS];
  
     // Swap the x and y coordinates to perform the rotation (coalesced)
     if (ID0 < M && ID1 < N) {
@@ -225,11 +225,11 @@ __kernel void matscale(const int M,
     // // Thread identifiers
     const int tx = get_local_id(0);
     const int ty = get_local_id(1);
-    const int ID0 = get_group_id(0) * TSK + tx; // 0..M
-    const int ID1 = get_group_id(1) * TSK + ty; // 0..N
+    const int ID0 = get_group_id(0) * TS + tx; // 0..M
+    const int ID1 = get_group_id(1) * TS + ty; // 0..N
  
     // Set-up the local memory for shuffling
-    __local floatX bufferA[TSK][TSK];
+    __local floatX bufferA[TS][TS];
  
     // Swap the x and y coordinates to perform the rotation (coalesced)
     if (ID0 < M && ID1 < N) {
@@ -256,8 +256,8 @@ __kernel void matpluscol(const int M,
     // // Thread identifiers
     const int tx = get_local_id(0);
     const int ty = get_local_id(1);
-    const int ID0 = get_group_id(0) * TSK + tx; // 0..M
-    const int ID1 = get_group_id(1) * TSK + ty; // 0..N
+    const int ID0 = get_group_id(0) * TS + tx; // 0..M
+    const int ID1 = get_group_id(1) * TS + ty; // 0..N
     const int IDb = get_global_id(0) * K;
 
     if (ID0 < M && ID1 < N) {
@@ -274,11 +274,11 @@ __kernel void sigmoid(const int M,
     // // Thread identifiers
     const int tx = get_local_id(0);
     const int ty = get_local_id(1);
-    const int ID0 = get_group_id(0) * TSK + tx; // 0..M
-    const int ID1 = get_group_id(1) * TSK + ty; // 0..N
+    const int ID0 = get_group_id(0) * TS + tx; // 0..M
+    const int ID1 = get_group_id(1) * TS + ty; // 0..N
 
     // Set-up the local memory for shuffling
-    __local floatX bufferA[TSK][TSK];
+    __local floatX bufferA[TS][TS];
 
     // Swap the x and y coordinates to perform the rotation (coalesced)
     if (ID0 < M && ID1 < N) {
@@ -302,11 +302,11 @@ __kernel void dsigmoid(const int M,
     // // Thread identifiers
     const int tx = get_local_id(0);
     const int ty = get_local_id(1);
-    const int ID0 = get_group_id(0) * TSK + tx; // 0..M
-    const int ID1 = get_group_id(1) * TSK + ty; // 0..N
+    const int ID0 = get_group_id(0) * TS + tx; // 0..M
+    const int ID1 = get_group_id(1) * TS + ty; // 0..N
 
     // Set-up the local memory for shuffling
-    __local floatX bufferA[TSK][TSK];
+    __local floatX bufferA[TS][TS];
 
     // Swap the x and y coordinates to perform the rotation (coalesced)
     if (ID0 < M && ID1 < N) {
@@ -331,11 +331,11 @@ __kernel void relu(const int M,
     // // Thread identifiers
     const int tx = get_local_id(0);
     const int ty = get_local_id(1);
-    const int ID0 = get_group_id(0) * TSK + tx; // 0..M
-    const int ID1 = get_group_id(1) * TSK + ty; // 0..N
+    const int ID0 = get_group_id(0) * TS + tx; // 0..M
+    const int ID1 = get_group_id(1) * TS + ty; // 0..N
 
     // Set-up the local memory for shuffling
-    __local floatX bufferA[TSK][TSK];
+    __local floatX bufferA[TS][TS];
 
     // Swap the x and y coordinates to perform the rotation (coalesced)
     if (ID0 < M && ID1 < N) {
@@ -364,11 +364,11 @@ __kernel void drelu(const int M,
     // // Thread identifiers
     const int tx = get_local_id(0);
     const int ty = get_local_id(1);
-    const int ID0 = get_group_id(0) * TSK + tx; // 0..M
-    const int ID1 = get_group_id(1) * TSK + ty; // 0..N
+    const int ID0 = get_group_id(0) * TS + tx; // 0..M
+    const int ID1 = get_group_id(1) * TS + ty; // 0..N
 
     // Set-up the local memory for shuffling
-    __local floatX bufferA[TSK][TSK];
+    __local floatX bufferA[TS][TS];
 
     // Swap the x and y coordinates to perform the rotation (coalesced)
     if (ID0 < M && ID1 < N) {
@@ -397,11 +397,11 @@ __kernel void dsoftmax(const int M,
     // // Thread identifiers
     const int tx = get_local_id(0);
     const int ty = get_local_id(1);
-    const int ID0 = get_group_id(0) * TSK + tx; // 0..M
-    const int ID1 = get_group_id(1) * TSK + ty; // 0..N
+    const int ID0 = get_group_id(0) * TS + tx; // 0..M
+    const int ID1 = get_group_id(1) * TS + ty; // 0..N
 
     // Set-up the local memory for shuffling
-    __local floatX bufferA[TSK][TSK];
+    __local floatX bufferA[TS][TS];
 
     // Swap the x and y coordinates to perform the rotation (coalesced)
     if (ID0 < M && ID1 < N) {

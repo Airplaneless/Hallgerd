@@ -56,7 +56,8 @@ class Sequential:
         logging.info('fitting on {} data'.format(X.shape))
         num_batches = np.ceil(X.shape[1] / self.bs)
         self.history['loss'] = list()
-        for _ in tqdm(range(self.epochs), disable=not self.verbose):
+        pbar = tqdm(range(self.epochs), disable=not self.verbose)
+        for _ in pbar:
             for x, yt in zip(np.array_split(X.T, num_batches), np.array_split(y.T, num_batches)):
                 _ = self.__call__(x.T)
                 self.backward(yt.T)
@@ -66,5 +67,6 @@ class Sequential:
             if self.loss == 'cross_entropy':
                 loss = cross_entropy(y, yp)
             logging.info('train loss: {}'.format(loss))
+            pbar.set_description('loss = {}'.format(loss))
             self.history['loss'].append(loss)
 

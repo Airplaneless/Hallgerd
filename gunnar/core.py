@@ -34,7 +34,7 @@ class Array:
         resbuff = cl.Buffer(self.device.ctx, cl.mem_flags.READ_WRITE, size=cpu_earr.nbytes)
         res = Array(self.device, resbuff, out_shape, (M, N))
         global_sizes = (int(M), int(N))
-        local_sizes = (int(self.device.TSK), int(self.device.TSK))
+        local_sizes = (int(self.device.TS), int(self.device.TS))
         event = self.device.prg.sigmoid(self.device.queue, global_sizes, local_sizes, M, N, self.buffer, res.buffer)
         cl.wait_for_events([event, ])
         return res
@@ -47,7 +47,7 @@ class Array:
         resbuff = cl.Buffer(self.device.ctx, cl.mem_flags.READ_WRITE, size=cpu_earr.nbytes)
         res = Array(self.device, resbuff, out_shape, (M, N))
         global_sizes = (int(M), int(N))
-        local_sizes = (int(self.device.TSK), int(self.device.TSK))
+        local_sizes = (int(self.device.TS), int(self.device.TS))
         event = self.device.prg.dsigmoid(self.device.queue, global_sizes, local_sizes, M, N, self.buffer, res.buffer)
         cl.wait_for_events([event, ])
         return res
@@ -60,7 +60,7 @@ class Array:
         resbuff = cl.Buffer(self.device.ctx, cl.mem_flags.READ_WRITE, size=cpu_earr.nbytes)
         res = Array(self.device, resbuff, out_shape, (M, N))
         global_sizes = (int(M), int(N))
-        local_sizes = (int(self.device.TSK), int(self.device.TSK))
+        local_sizes = (int(self.device.TS), int(self.device.TS))
         event = self.device.prg.relu(self.device.queue, global_sizes, local_sizes, M, N, self.buffer, res.buffer)
         cl.wait_for_events([event, ])
         return res
@@ -73,7 +73,7 @@ class Array:
         resbuff = cl.Buffer(self.device.ctx, cl.mem_flags.READ_WRITE, size=cpu_earr.nbytes)
         res = Array(self.device, resbuff, out_shape, (M, N))
         global_sizes = (int(M), int(N))
-        local_sizes = (int(self.device.TSK), int(self.device.TSK))
+        local_sizes = (int(self.device.TS), int(self.device.TS))
         event = self.device.prg.drelu(self.device.queue, global_sizes, local_sizes, M, N, self.buffer, res.buffer)
         cl.wait_for_events([event, ])
         return res
@@ -96,7 +96,7 @@ class Array:
         resbuff = cl.Buffer(self.device.ctx, cl.mem_flags.READ_WRITE, size=cpu_earr.nbytes)
         res = Array(self.device, resbuff, out_shape, (M, N))
         global_sizes = (int(M), int(N))
-        local_sizes = (int(self.device.TSK), int(self.device.TSK))
+        local_sizes = (int(self.device.TS), int(self.device.TS))
         event = self.device.prg.dsoftmax(self.device.queue, global_sizes, local_sizes, M, N, self.buffer, res.buffer)
         cl.wait_for_events([event, ])
         return res
@@ -117,7 +117,7 @@ class Array:
         resbuff = cl.Buffer(self.device.ctx, cl.mem_flags.READ_WRITE, size=cpu_earr.nbytes)
         res = Array(self.device, resbuff, out_shape, (M, N))
         global_sizes = (int(M), int(N))
-        local_sizes = (int(self.device.TSK), int(self.device.TSK))
+        local_sizes = (int(self.device.TS), int(self.device.TS))
         event = self.device.prg.matdot(self.device.queue, global_sizes, local_sizes, M, N, self.buffer, other.buffer, res.buffer)
         cl.wait_for_events([event,])
         return res
@@ -131,7 +131,7 @@ class Array:
         res = Array(self.device, resbuff, out_shape, (M, N))
         scalar = self.device.DTYPE(scalar)
         global_sizes = (int(M), int(N))
-        local_sizes = (int(self.device.TSK), int(self.device.TSK))
+        local_sizes = (int(self.device.TS), int(self.device.TS))
         event = self.device.prg.matscale(self.device.queue, global_sizes, local_sizes, M, N, self.buffer, scalar, res.buffer)
         cl.wait_for_events([event,])
         return res
@@ -159,7 +159,7 @@ class Array:
         resbuff = cl.Buffer(self.device.ctx, cl.mem_flags.READ_WRITE, size=cpu_earr.nbytes)
         res = Array(self.device, resbuff, out_shape, (N, M))
         global_sizes = (int(N), int(M))
-        local_sizes = (int(self.device.TSK), int(self.device.TSK))
+        local_sizes = (int(self.device.TS), int(self.device.TS))
         event = self.device.prg.transpose(self.device.queue, global_sizes, local_sizes, N, M, self.buffer, res.buffer)
         cl.wait_for_events([event,])
         return res
@@ -174,7 +174,7 @@ class Array:
         resbuff = cl.Buffer(self.device.ctx, cl.mem_flags.READ_WRITE, size=cpu_earr.nbytes)
         res = Array(self.device, resbuff, out_shape, (M, N))
         global_sizes = (int(M), int(N))
-        local_sizes = (int(self.device.TSK), int(self.device.TSK))
+        local_sizes = (int(self.device.TS), int(self.device.TS))
         event = self.device.prg.matsum(self.device.queue, global_sizes, local_sizes, M, N, self.buffer, other.buffer, res.buffer)
         cl.wait_for_events([event,])
         return res
@@ -189,7 +189,7 @@ class Array:
         resbuff = cl.Buffer(self.device.ctx, cl.mem_flags.READ_WRITE, size=cpu_earr.nbytes)
         res = Array(self.device, resbuff, out_shape, (M, N))
         global_sizes = (int(M), int(N))
-        local_sizes = (int(self.device.TSK), int(self.device.TSK))
+        local_sizes = (int(self.device.TS), int(self.device.TS))
         event = self.device.prg.matsubstract(self.device.queue, global_sizes, local_sizes, M, N, self.device.buffer, other.buffer, res.buffer)
         cl.wait_for_events([event,])
         return res
@@ -204,7 +204,7 @@ class Array:
         resbuff = cl.Buffer(self.device.ctx, cl.mem_flags.READ_WRITE, size=cpu_earr.nbytes)
         res = Array(self.device, resbuff, out_shape, (M, N))
         global_sizes = (int(M), int(N))
-        local_sizes = (int(self.device.TSK), int(self.device.TSK))
+        local_sizes = (int(self.device.TS), int(self.device.TS))
         event = self.device.prg.matpluscol(self.device.queue, global_sizes, local_sizes, M, N, K, self.buffer, other.buffer, res.buffer)
         cl.wait_for_events([event,])
         return res
@@ -219,12 +219,13 @@ class Device(metaclass=Singleton):
         self.TSM = kwargs['TSM'] if 'TSM' in kwargs else 128
         self.TSN = kwargs['TSN'] if 'TSN' in kwargs else 128
         self.TSK = kwargs['TSK'] if 'TSK' in kwargs else 8
+        self.TS = kwargs['TS'] if 'TS' in kwargs else 16
         self.WPTM = kwargs['WPTM'] if 'WPTM' in kwargs else 8
         self.WPTN = kwargs['WPTN'] if 'WPTN' in kwargs else 8
         self.ctx = cl.Context(devices)
         self.queue = cl.CommandQueue(self.ctx)
-        options = "-DTSM={} -DTSN={} -DTSK={} -DWPTM={} -DWPTN={} -DfloatX={} -cl-fast-relaxed-math".format(
-            self.TSM, self.TSN, self.TSK, self.WPTM, self.WPTN, floatX)
+        options = "-DTSM={} -DTSN={} -DTSK={} -DWPTM={} -DWPTN={} -DfloatX={} -DTS={} -cl-fast-relaxed-math".format(
+            self.TSM, self.TSN, self.TSK, self.WPTM, self.WPTN, floatX, self.TS)
         self.prg = cl.Program(self.ctx, MAT_KERNELS).build(options)
 
     def guardShapes(self, M):

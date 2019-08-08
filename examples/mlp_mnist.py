@@ -1,4 +1,3 @@
-import logging
 import sys
 sys.path.append('../')
 import numpy as np
@@ -14,9 +13,6 @@ from sklearn.metrics import classification_report
 
 
 if __name__ == '__main__':
-
-    log_format = '[%(asctime)s] - %(message)s'
-    logging.basicConfig(level=logging.INFO, format=log_format)
 
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
     x_train = x_train.reshape(60000, 784)
@@ -40,7 +36,7 @@ if __name__ == '__main__':
     print('\nUsing ', dnames[0])
     gpu = Device([devices[dnames[0]]], DTYPE=np.float32)
 
-    model = Sequential(gpu, lr=1e-3, batch_size=128, epochs=5, loss='cross_entropy', verbose=False)
+    model = Sequential(gpu, lr=1e-3, batch_size=128, epochs=5, loss='cross_entropy', verbose=True)
     model.add(Dense(784, 512, activation='relu'))
     model.add(Dense(512, 512, activation='relu'))
     model.add(Dense(512, 10, activation='softmax'))
