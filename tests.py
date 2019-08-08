@@ -1,4 +1,5 @@
 import unittest
+import logging
 import numpy as np
 
 from sklearn.datasets import make_classification
@@ -9,7 +10,8 @@ from gunnar.core import Device, Array
 
 
 def softmax(x):
-    return np.exp(x - np.max(x)) / np.sum(np.exp(x - np.max(x)), axis=0)
+    exps = np.exp(x - np.max(x))
+    return exps / np.sum(exps, axis=0)
 
 
 def d_softmax(sx):
@@ -43,7 +45,7 @@ class TestGunnar(unittest.TestCase):
         gpu = Device([devices[device]])
         A = np.random.randn(69, 690)
         clA = gpu.array(A)
-        clC = Array.sigmoid(clA)
+        clC = clA.sigmoid()
         C = clC.to_cpu()
         score = np.linalg.norm(sigmoid(A) - C)
         self.assertLess(score, 0.1, msg='Wrong sigmoid')
@@ -54,7 +56,7 @@ class TestGunnar(unittest.TestCase):
         gpu = Device([devices[device]])
         A = np.random.randn(69, 690)
         clA = gpu.array(A)
-        clC = Array.dsigmoid(clA)
+        clC = clA.dsigmoid()
         C = clC.to_cpu()
         score = np.linalg.norm(d_sigmoid(A) - C)
         self.assertLess(score, 0.1, msg='Wrong dsigmoid')
@@ -65,7 +67,7 @@ class TestGunnar(unittest.TestCase):
         gpu = Device([devices[device]])
         A = np.random.randn(69, 690)
         clA = gpu.array(A)
-        clC = Array.relu(clA)
+        clC = clA.relu()
         C = clC.to_cpu()
         score = np.linalg.norm(relu(A) - C)
         self.assertLess(score, 0.1, msg='Wrong relu')
@@ -76,7 +78,7 @@ class TestGunnar(unittest.TestCase):
         gpu = Device([devices[device]])
         A = np.random.randn(69, 690)
         clA = gpu.array(A)
-        clC = Array.drelu(clA)
+        clC = clA.drelu()
         C = clC.to_cpu()
         score = np.linalg.norm(d_relu(A) - C)
         self.assertLess(score, 0.1, msg='Wrong drelu')
@@ -87,7 +89,7 @@ class TestGunnar(unittest.TestCase):
         gpu = Device([devices[device]])
         A = np.random.randn(690, 69)
         clA = gpu.array(A)
-        clC = Array.softmax(clA)
+        clC = clA.softmax()
         C = clC.to_cpu()
         score = np.linalg.norm(softmax(A) - C)
         self.assertLess(score, 0.1, msg='Wrong softmax')
@@ -98,7 +100,7 @@ class TestGunnar(unittest.TestCase):
         gpu = Device([devices[device]])
         A = np.random.randn(69, 690)
         clA = gpu.array(A)
-        clC = Array.dsoftmax(clA)
+        clC = clA.dsoftmax()
         C = clC.to_cpu()
         score = np.linalg.norm(d_softmax(A) - C)
         self.assertLess(score, 0.1, msg='Wrong dsoftmax')
@@ -186,6 +188,9 @@ class TestModels(unittest.TestCase):
     def test_mlp_classifier(self):
         from sklearn.preprocessing import OneHotEncoder, MinMaxScaler, StandardScaler
         from sklearn.metrics import classification_report, accuracy_score
+
+        log_format = '[%(asctime)s] - %(message)s'
+        logging.basicConfig(level=logging.INFO, format=log_format)
         X, y = make_classification(n_samples=10000, n_features=200, n_informative=200, n_redundant=0, n_classes=5)
         y = OneHotEncoder(sparse=False, categories='auto').fit_transform(y.reshape((-1,1)))
         X = StandardScaler().fit_transform(X)

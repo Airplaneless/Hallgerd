@@ -32,6 +32,13 @@ class Sequential:
             xa = layer(xa)
         return xa.to_cpu()
 
+    def predict(self, X):
+        yp = list()
+        num_batches = np.ceil(X.shape[1] / self.bs)
+        for x in np.array_split(X.T, num_batches):
+            yp.append(self.__call__(x.T))
+        return np.hstack(yp)
+
     def backward(self, y):
         y = y.copy()
         yp = self.layers[-1].y.to_cpu()
@@ -53,10 +60,11 @@ class Sequential:
             for x, yt in zip(np.array_split(X.T, num_batches), np.array_split(y.T, num_batches)):
                 _ = self.__call__(x.T)
                 self.backward(yt.T)
+            yp = self.predict(X)
             if self.loss == 'mse':
-                loss = mse(y, self.__call__(X))
+                loss = mse(y, yp)
             if self.loss == 'cross_entropy':
-                loss = cross_entropy(y, self.__call__(X))
+                loss = cross_entropy(y, yp)
             logging.info('train loss: {}'.format(loss))
             self.history['loss'].append(loss)
 
