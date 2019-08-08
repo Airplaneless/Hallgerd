@@ -1,4 +1,3 @@
-#define floatX float
 #define RTSM (TSM/WPTM)
 #define RTSN (TSN/WPTN)
 #define LPTA ((TSK*TSM)/(RTSM*RTSN))
