@@ -224,7 +224,7 @@ class Device(metaclass=Singleton):
         self.WPTN = kwargs['WPTN'] if 'WPTN' in kwargs else 8
         self.ctx = cl.Context(devices)
         self.queue = cl.CommandQueue(self.ctx)
-        options = "-DTSM={} -DTSN={} -DTSK={} -DWPTM={} -DWPTN={} -DfloatX={} -DTS={} -cl-fast-relaxed-math".format(
+        options = "-DTSM={} -DTSN={} -DTSK={} -DWPTM={} -DWPTN={} -DfloatX={} -DTS={}".format(
             self.TSM, self.TSN, self.TSK, self.WPTM, self.WPTN, floatX, self.TS)
         self.prg = cl.Program(self.ctx, MAT_KERNELS).build(options)
 

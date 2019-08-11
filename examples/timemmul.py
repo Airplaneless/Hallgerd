@@ -12,7 +12,7 @@ if __name__ == '__main__':
 
     print('Found devices:\n\t{}'.format('\n\t'.join(dnames)))
     print('\nUsing ', dnames[0])
-    gpu = Device([devices[dnames[0]]], DTYPE=np.float32)
+    gpu = Device([devices[dnames[0]]], DTYPE=np.float32, TSK=32, WPTM=4, WPTN=4)
 
     A = np.random.randn(4096, 4096).astype(np.float32)
     B = np.random.randn(4096, 4096).astype(np.float32)

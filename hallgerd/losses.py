@@ -10,7 +10,7 @@ def mse_delta(yt, yp):
 
 
 def softmax(x):
-    exps = np.exp(x - np.max(x))
+    exps = np.exp(x - np.max(x, axis=0))
     return exps / np.sum(exps, axis=0)
 
 

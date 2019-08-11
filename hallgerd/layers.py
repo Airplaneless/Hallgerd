@@ -9,6 +9,8 @@ class Dense:
 
     def __init__(self, inshape, outshape, activation='sigmoid'):
         assert activation in SUPPORTED_ACTIVATIONS
+        self.in_shape = inshape
+        self.out_shape = outshape
         self.activation = activation
         self.weight = None
         self.dweight = None
@@ -48,8 +50,8 @@ class Dense:
             err = err * Array.dsoftmax(self.y)
         errT = err.transpose()
         ones = self.gpu.array(np.ones((self.x.shape[1], 1)))
-        self.dbias = (ones @ errT).scale(lr)
-        self.dweight = (self.x.transpose() @ errT).scale(lr)
+        self.dbias = (ones @ errT).scale(lr / self.in_shape)
+        self.dweight = (self.x.transpose() @ errT).scale(lr / self.in_shape)
         self.bias = self.bias + self.dbias
         self.weight = self.weight + self.dweight
         error = err @ self.weight
