@@ -1,6 +1,6 @@
 import numpy as np
-from gunnar.core import Device, Array
 
+from gunnar.core import Device, Array
 
 SUPPORTED_ACTIVATIONS = ['sigmoid', 'relu', 'softmax']
 

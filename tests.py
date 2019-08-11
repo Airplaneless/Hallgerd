@@ -199,8 +199,8 @@ class TestModels(unittest.TestCase):
         devices = Device.getDevices()
         names = [k for k in devices]
         assert names
-        cldevice = Device([devices[names[0]]])
-        model = Sequential(device=cldevice, lr=1e-3, batch_size=1024, epochs=40, loss='cross_entropy', verbose=True)
+        cldevice = Device([devices[names[0]]], TSK=32, WPTM=4, WPTN=4)
+        model = Sequential(device=cldevice, lr=1e-1, batch_size=1024, epochs=40, loss='cross_entropy', verbose=True)
         model.add(Dense(200, 200, activation='relu'))
         model.add(Dense(200, 5, activation='softmax'))
         model.fit(X, y) 
@@ -209,8 +209,7 @@ class TestModels(unittest.TestCase):
         yp = ypp.argmax(axis=0)
         score = accuracy_score(yt, yp)
         self.assertGreater(score, 0.8, msg='MLP wrong')
-    
-        
+
 
 if __name__ == "__main__":
     unittest.main()

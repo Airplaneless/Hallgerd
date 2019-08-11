@@ -1,10 +1,9 @@
 import logging
-import numpy as np
+
 from tqdm import tqdm
 
-from hallgerd.losses import *
 from gunnar.core import Device
-
+from hallgerd.losses import *
 
 SUPPORTED_LOSSES = ['mse', 'cross_entropy']
 

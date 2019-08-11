@@ -34,9 +34,9 @@ if __name__ == '__main__':
 
     print('Found devices:\n\t{}'.format('\n\t'.join(dnames)))
     print('\nUsing ', dnames[0])
-    gpu = Device([devices[dnames[0]]], DTYPE=np.float32)
+    gpu = Device([devices[dnames[0]]], DTYPE=np.float32, TS=32, TSK=32, WPTM=4, WPTN=4, TSM=128, TSN=128)
 
-    model = Sequential(gpu, lr=1e-3, batch_size=1024, epochs=5, loss='cross_entropy', verbose=True)
+    model = Sequential(gpu, lr=1e-1, batch_size=1024, epochs=5, loss='cross_entropy', verbose=True)
     model.add(Dense(784, 512, activation='relu'))
     model.add(Dense(512, 512, activation='relu'))
     model.add(Dense(512, 10, activation='softmax'))
