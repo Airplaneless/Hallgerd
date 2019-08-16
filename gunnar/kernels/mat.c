@@ -4,8 +4,8 @@
 #define LPTB ((TSK*TSN)/(RTSM*RTSN))
 
 // MAT OPERATORS
-__kernel void matmul(const int M, 
-                     const int N, 
+__kernel void matmul(const int M,
+                     const int N,
                      const int K,
                      __global floatX * A,
                      __global floatX * B,

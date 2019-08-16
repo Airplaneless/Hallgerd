@@ -2,7 +2,7 @@ import sys
 sys.path.append('../')
 import numpy as np
 import time
-from gunnar.core import Device, Array
+from gunnar.core import Device
 
 
 if __name__ == '__main__':
@@ -12,7 +12,7 @@ if __name__ == '__main__':
 
     print('Found devices:\n\t{}'.format('\n\t'.join(dnames)))
     print('\nUsing ', dnames[0])
-    gpu = Device([devices[dnames[0]]], DTYPE=np.float32, TSK=32, TS=32, WPTM=4, WPTN=4)
+    gpu = Device([devices[dnames[0]]], DTYPE=np.float32, TSK=16, TS=16, WPTM=8, WPTN=8, TPM=128, TPN=128)
 
     A = np.random.randn(4096, 4096).astype(np.float32)
     B = np.random.randn(4096, 4096).astype(np.float32)
