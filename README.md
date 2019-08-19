@@ -2,7 +2,7 @@
 ### Deep learning framework for OpenCL
 
 Draft of dl framework for OpenCL.
-There is only Dense layer for now. 
+There is only Dense layer. 
 Supports sigmoid, relu, softmax activations, MSE and categorical cross entropy loss functions
 
 ## Usage
@@ -10,7 +10,8 @@ Supports sigmoid, relu, softmax activations, MSE and categorical cross entropy l
 Select OpenCL device and init model parameters (see gunnar README)
 
     In [1]: from hallgerd.core import Sequential
-            model = Sequential(device=devices['GeForce GTX 660'], lr=1e-1, batch_size=1024, epochs=40, loss='cross_entropy', verbose=True)
+            gpu = Device(devices['GeForce GTX 660'], DTYPE=np.float32)
+            model = Sequential(device=gpu, lr=1e-1, batch_size=1024, epochs=40, loss='cross_entropy')
 
 Add layers
 
