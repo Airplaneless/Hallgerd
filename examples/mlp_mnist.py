@@ -39,7 +39,7 @@ if __name__ == '__main__':
     print('\nUsing ', dnames[0])
     gpu = Device([devices[dnames[0]]], DTYPE=np.float32, TS=32, TSK=32, WPTM=4, WPTN=4, TSM=128, TSN=128)
 
-    model = Sequential(gpu, lr=1e-1, batch_size=1024, epochs=5, loss='cross_entropy', verbose=True)
+    model = Sequential(gpu, lr=1e-1, batch_size=1024, epochs=20, loss='cross_entropy', verbose=True)
     model.add(Dense(784, 512, activation='relu'))
     model.add(Dense(512, 512, activation='relu'))
     model.add(Dense(512, 10, activation='softmax'))
@@ -50,3 +50,19 @@ if __name__ == '__main__':
     yp = ypp.argmax(axis=0)
     print(classification_report(yt, yp))
 
+#               precision    recall  f1-score   support
+
+#            0       0.91      0.96      0.94      1000
+#            1       0.93      0.95      0.94      1000
+#            2       0.88      0.88      0.88      1000
+#            3       0.91      0.79      0.84      1000
+#            4       0.96      0.53      0.69      1000
+#            5       0.90      0.77      0.83      1000
+#            6       0.88      0.94      0.91      1000
+#            7       0.95      0.79      0.86      1000
+#            8       0.78      0.86      0.82      1000
+#            9       0.57      0.94      0.71      1000
+
+#     accuracy                           0.84     10000
+#    macro avg       0.87      0.84      0.84     10000
+# weighted avg       0.87      0.84      0.84     10000
