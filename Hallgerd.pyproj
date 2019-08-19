@@ -40,6 +40,9 @@
     <InterpreterReference Include="Global|PythonCore|3.7" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="examples\load_mnist.sh">
+      <Publish>True</Publish>
+    </Content>
     <Content Include="gunnar\kernels\mat.c">
       <Publish>True</Publish>
     </Content>
