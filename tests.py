@@ -189,8 +189,6 @@ class TestModels(unittest.TestCase):
         from sklearn.preprocessing import OneHotEncoder, MinMaxScaler, StandardScaler
         from sklearn.metrics import classification_report, accuracy_score
 
-        log_format = '[%(asctime)s] - %(message)s'
-        logging.basicConfig(level=logging.INFO, format=log_format)
         X, y = make_classification(n_samples=10000, n_features=200, n_informative=200, n_redundant=0, n_classes=5)
         y = OneHotEncoder(sparse=False, categories='auto').fit_transform(y.reshape((-1,1)))
         X = StandardScaler().fit_transform(X)
