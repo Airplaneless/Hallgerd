@@ -47,7 +47,7 @@ LIB=`C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.0\lib\x64`
 
     $ git clone https://github.com/Airplaneless/Hallgerd.git  --branch 0.1.0
     $ cd Hallgerd
-    $ python setup install
+    $ python setup.py install
 
 To make sure that all works
 
