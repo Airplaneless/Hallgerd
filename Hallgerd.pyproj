@@ -5,7 +5,8 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{32fb2d00-0835-4ff6-94d5-c2e9eabf5566}</ProjectGuid>
     <ProjectHome />
-    <StartupFile>tests.py</StartupFile>
+    <StartupFile>
+    </StartupFile>
     <SearchPath />
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
@@ -23,12 +24,20 @@
     <Compile Include="examples\timemmul.py" />
     <Compile Include="gunnar\core.py" />
     <Compile Include="gunnar\kernels\__init__.py" />
+    <Compile Include="gunnar\tests.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="gunnar\__init__.py" />
     <Compile Include="hallgerd\core.py" />
     <Compile Include="hallgerd\layers.py" />
     <Compile Include="hallgerd\losses.py" />
+    <Compile Include="hallgerd\tests.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="hallgerd\__init__.py" />
-    <Compile Include="tests.py" />
+    <Compile Include="setup.py">
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <Folder Include="examples" />
