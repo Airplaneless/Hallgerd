@@ -56,6 +56,7 @@
       <Publish>True</Publish>
     </Content>
     <Content Include="gunnar\README.md" />
+    <Content Include="LICENSE" />
     <Content Include="README.md" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />

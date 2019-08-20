@@ -8,3 +8,7 @@
 /hallgerd/__pycache__
 /__pycache__
 /examples/mnist-data
+/build/lib
+/dist
+/hallgerd.egg-info
+/venv
