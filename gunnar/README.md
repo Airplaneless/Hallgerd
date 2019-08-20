@@ -10,11 +10,11 @@ Get dict of available OpenCL devices:
     In [2]: devices
     Out[2]: {'GeForce GTX 660': <pyopencl.Device 'GeForce GTX 660' on 'NVIDIA CUDA' at 0x2694714a8e0>}
 
-Creation OpenCL device with specified array type
+Creation of OpenCL device with specified array type
 
     In [3]: gpu = Device(devices['GeForce GTX 660'], DTYPE=np.float32)
 
-Creation OpenCL arrays from numpy arrays
+Creation of OpenCL arrays from numpy arrays
 
     In [5]: A = np.random.randn(420, 690)
             B = np.random.randn(690, 228)
@@ -29,4 +29,4 @@ Matrix operation and copy to numpy array
 ## Performance 
 
 ![mmulFLOPS](https://drive.google.com/uc?id=19BSTtkUd1Kc_oON4e4dwl43l4xDYQJqL)
-Matrix multiplication with NumPy, PyTorch and Gunnar (matrix sizes: 4096x4096x4096 on Intel HD and Nvidia GTX, 16384x16384x16384 on Tesla)
+Performance of matrix multiplication with NumPy, PyTorch and Gunnar with copy result back to host (matrix sizes: 4096x4096x4096, dtype=float32)
