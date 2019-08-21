@@ -1,3 +1,4 @@
+#pragma OPENCL EXTENSION cl_khr_fp16 : enable
 #define RTSM (TSM/WPTM)
 #define RTSN (TSN/WPTN)
 #define LPTA ((TSK*TSM)/(RTSM*RTSN))

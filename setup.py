@@ -1,12 +1,13 @@
+import os
 from setuptools import setup
 
 
-with open('LICENSE', 'r') as f:
+with open(os.path.join(os.path.dirname(__file__), 'LICENSE'), 'r') as f:
     license = f.read()
 
 
 setup(name='hallgerd',
-      version='0.1.0',
+      version='0.1.1',
       description='Deep learning framework for OpenCL',
       author='Artem Razumov',
       author_email='airplaneless@yandex.ru',

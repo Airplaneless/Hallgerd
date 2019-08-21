@@ -5,6 +5,7 @@ from gunnar.kernels import MAT_KERNELS
 from hallgerd.losses import softmax
 
 SUPPORTED_ACTIVATIONS = ['sigmoid', 'relu', 'softmax']
+DTYPES = {np.float16 : 'half', np.float32 : 'float', np.float64 : 'double'}
 
 
 class Singleton(type):
@@ -174,8 +175,8 @@ class Device(metaclass=Singleton):
 
     def __init__(self, devices: list, **kwargs):
         self.DTYPE = kwargs['DTYPE'] if 'DTYPE' in kwargs else np.float32
-        assert self.DTYPE in [np.float64, np.float32]
-        floatX = 'float' if self.DTYPE == np.float32 else 'double'
+        assert self.DTYPE in DTYPES
+        floatX = DTYPES[self.DTYPE]
         self.TSM = kwargs['TSM'] if 'TSM' in kwargs else 128
         self.TSN = kwargs['TSN'] if 'TSN' in kwargs else 128
         self.TSK = kwargs['TSK'] if 'TSK' in kwargs else 8
