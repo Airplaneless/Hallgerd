@@ -5,12 +5,70 @@
 #define LPTB ((TSK*TSN)/(RTSM*RTSN))
 
 // MAT OPERATORS
+__kernel void dconv2d() {}
+
+
+__kernel void conv2d(const int cI, const int xI, const int yI,
+					 const int icf, const int ocf, const int xf, const int yf,
+					 const int f_displ, const int img_displ,
+					 const int padding,
+					 __global floatX * Img,
+					 __global floatX * f,
+					 __global floatX * OImg) 
+{
+	const int I = get_global_id(0);
+	const int J = get_global_id(1);
+	const int batch_id = get_global_id(2);
+	floatX res;
+	floatX Ibuff;
+	floatX fbuff;
+	int xid;
+	int yid;
+	int fxs = xf / 2;
+	int fys = yf / 2;
+	// for each output channel
+	for (int oc = 0; oc < ocf; ++oc) {
+		res = 0.0;
+		// for each input channel
+		for (int ic = 0; ic < icf; ++ic) {
+			// for each x, y if filter
+			for (int j = -fys; j <= fys; ++j) {
+				for (int i = -fxs; i <= fxs; ++i) {
+					xid = I + i;
+					yid = J + j;
+					fbuff = f[(((oc * icf + ic) * yf + j + fys) * xf + i + fxs) * f_displ];
+					if (xid >= 0 && xid < xI && yid >= 0 && yid < yI) {
+						Ibuff = Img[((ic * yI + yid) * xI + xid) * img_displ + batch_id];
+					}
+					else {
+						if (padding == 0) {
+							Ibuff = 0.0;
+						}
+						else if (padding == 1) {
+							xid = (xid % xI + xI) % xI;
+							yid = (yid % yI + yI) % yI;
+							//printf("xid: %d\tyid: %d", xid, yid);
+							Ibuff = Img[((ic * yI + yid) * xI + xid) * img_displ + batch_id];
+						}
+					}
+					//printf("%f\n", Img[(1 * xI + 1) * img_displ + 1]);
+					//printf("I: %d\tJ: %d\ti: %d\tj: %d\tic: %d\toc: %d\tf= %f\tImg=%f\n", I, J, i, j, ic, oc, fbuff, Ibuff);
+					res += Ibuff * fbuff;
+				}
+			}
+		}
+		//printf("I: %d\tJ: %d\t res: %f\n", I, J, res);
+		OImg[((oc * yI + J) * xI + I) * img_displ + batch_id] = res;
+	}
+}
+
+
 __kernel void matmul(const int M,
-	const int N,
-	const int K,
-	__global floatX* A,
-	__global floatX* B,
-	__global floatX* C)
+		const int N,
+		const int K,
+		__global floatX* A,
+		__global floatX* B,
+		__global floatX* C)
 {
 	// Thread identifiers
 	const int tidm = get_local_id(0); // Local row ID (max: TSM/WPTM)
