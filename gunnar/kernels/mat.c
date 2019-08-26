@@ -5,23 +5,23 @@
 #define LPTB ((TSK*TSN)/(RTSM*RTSN))
 
 // MAT OPERATORS
-__kernel void filtercrop(const int coI, const int ciI, const int xI, const int yI,
-						 const int I_displ, const int f_displ,
-						 const int xc, const int yc,
+__kernel void filtercrop(const int ciI, const int coI, const int xI, const int yI,
+						 const int x1, const int x2, const int y1, const int y2,
+						 const int x_displ, const int y_displ, const int iI_displ, const int oI_displ,
 						 __global floatX * Img,
-						 __global floatX * OImg)
+						 __global floatX * res)
 {
 	const int I = get_global_id(0);
 	const int J = get_global_id(1);
-	//const int batch_id = get_global_id(2);
-	floatX buff;
-	
+	int imgI;
+	int imgJ;
+	// for each output channel
 	for (int oc = 0; oc < coI; ++oc) {
+		// for each input channel
 		for (int ic = 0; ic < ciI; ++ic) {
-			if (I >= xc && I < xI - xc && J >= yc && J < yI - yc) {
-				buff = Img[(((oc * ciI + ic) * yI + J) * xI + I) * I_displ];
-				OImg[(((oc * ciI + ic) * yI + J - yc) * xI + I - xc) * f_displ] = buff;
-			}
+			imgI = I + x1;
+			imgJ = J + y1;
+			res[(((oc * ciI + ic) * y_displ + J) * x_displ + I) * oI_displ] = Img[(((oc * ciI + ic) * yI + imgJ) * xI + imgI) * iI_displ];
 		}
 	}
 }

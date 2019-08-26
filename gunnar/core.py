@@ -89,6 +89,36 @@ class Array:
         cl.wait_for_events([event, ])
         return x[:self.shape[0], :self.shape[1]]
 
+    def crop(self, area, imgshape, channels):
+        xcrop, ycrop = area
+        imgX, imgY = imgshape
+        imgOC, imgIC = channels
+        xI = np.int32(imgX);    yI = np.int32(imgY)
+        imgX = np.int32(xcrop[1] - xcrop[0])
+        imgY = np.int32(ycrop[1] - ycrop[0])
+        x1 = np.int32(xcrop[0]);    x2 = np.int32(xcrop[1])
+        y1 = np.int32(ycrop[0]);    y2 = np.int32(ycrop[1])
+        imgIC = np.int32(imgIC);  imgOC = np.int32(imgOC)
+
+        cpu_earr = np.empty((imgIC * imgOC * imgX * imgY, 1), dtype=self.device.DTYPE)
+        cpu_earr = self.device.guardShapes(cpu_earr)
+        resbuff = cl.Buffer(self.device.ctx, cl.mem_flags.READ_WRITE, size=cpu_earr.nbytes)
+        res = Array(self.device, resbuff, (imgIC * imgOC * imgX * imgY, 1), cpu_earr.shape)
+
+        iI_displ = np.int32(self.bshape[0])
+        oI_displ = np.int32(res.bshape[1])
+        
+        global_sizes = (int(imgX), int(imgY), int(self.shape[1]))
+        local_sizes = None
+        
+        event = self.device.prg.filtercrop(self.device.queue, global_sizes, local_sizes,
+                                           imgIC, imgOC, xI, yI,
+                                           x1, x2, y1, y2,
+                                           imgX, imgY, iI_displ, oI_displ,
+                                           self.buffer, res.buffer)
+        cl.wait_for_events([event, ])
+        return res
+
     def fconv2d(self, other, fshape, imgshape, channels, padding=0):
         imgX, imgY = imgshape
         imgOC, imgIC = channels
