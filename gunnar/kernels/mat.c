@@ -5,7 +5,81 @@
 #define LPTB ((TSK*TSN)/(RTSM*RTSN))
 
 // MAT OPERATORS
-__kernel void dconv2d() {}
+__kernel void filtercrop(const int coI, const int ciI, const int xI, const int yI,
+						 const int I_displ, const int f_displ,
+						 const int xc, const int yc,
+						 __global floatX * Img,
+						 __global floatX * OImg)
+{
+	const int I = get_global_id(0);
+	const int J = get_global_id(1);
+	//const int batch_id = get_global_id(2);
+	floatX buff;
+	
+	for (int oc = 0; oc < coI; ++oc) {
+		for (int ic = 0; ic < ciI; ++ic) {
+			if (I >= xc && I < xI - xc && J >= yc && J < yI - yc) {
+				buff = Img[(((oc * ciI + ic) * yI + J) * xI + I) * I_displ];
+				OImg[(((oc * ciI + ic) * yI + J - yc) * xI + I - xc) * f_displ] = buff;
+			}
+		}
+	}
+}
+
+
+__kernel void fconv2d(const int ciI, const int coI, const int xI, const int yI,
+					  const int icf, const int ocf, const int xf, const int yf,
+					  const int iI_displ, const int oI_displ,
+					  const int padding,
+					  __global floatX * oImg,
+					  __global floatX * iImg,
+					  __global floatX * df) 
+{
+	const int I = get_global_id(0); // 0 .. outX (= xI * 2 - 1)
+	const int J = get_global_id(1); // 0 .. outY (= yI * 2 - 1)
+	const int batch_id = 0; //get_global_id(2);
+	floatX res;
+	int xid;
+	int yid;
+	floatX oImg_buff;
+	floatX iImg_buff;
+	int fxs = xf / 2;
+	int fys = yf / 2;
+	int x_displ = xI * 2 - 1;
+	int y_displ = yI * 2 - 1;
+	
+	// for each output channel
+	for (int oc = 0; oc < ocf; ++oc) {
+		// for each input channel
+		for (int ic = 0; ic < icf; ++ic) {
+			res = 0.0;
+			for (int j = -fys; j < fys + (yf % 2); ++j) {
+				for (int i = -fxs; i < fxs + (xf % 2); ++i) {
+					xid = I + i - fxs;
+					yid = J + j - fys;
+					if (xid >= 0 && xid < xI && yid >= 0 && yid < yI) {
+						oImg_buff = oImg[((oc * yI + yid) * xI + xid) * oI_displ + batch_id];
+						iImg_buff = iImg[((ic * yI + j + fys) * xI + i + fxs) * iI_displ + batch_id];
+					}
+					else {
+						if (padding == 0) {
+							oImg_buff = 0.0;
+							iImg_buff = 0.0;
+						}
+						else if (padding == 1) {
+							xid = (xid % xI + xI) % xI;
+							yid = (yid % yI + yI) % yI;
+							oImg_buff = oImg[((oc * yI + yid) * xI + xid) * oI_displ + batch_id];
+							iImg_buff = iImg[((ic * yI + j + fys) * xI + i + fxs) * iI_displ + batch_id];
+						}
+					}
+					res += oImg_buff * iImg_buff;
+				}
+			}
+			df[(((oc * icf + ic) * y_displ + y_displ - J - 1) * x_displ + x_displ - I - 1) * iI_displ] = res;
+		}
+	}
+}
 
 
 __kernel void conv2d(const int cI, const int xI, const int yI,
@@ -32,8 +106,8 @@ __kernel void conv2d(const int cI, const int xI, const int yI,
 		// for each input channel
 		for (int ic = 0; ic < icf; ++ic) {
 			// for each x, y if filter
-			for (int j = -fys; j <= fys; ++j) {
-				for (int i = -fxs; i <= fxs; ++i) {
+			for (int j = -fys; j < fys + (yf % 2); ++j) {
+				for (int i = -fxs; i < fxs + (xf % 2); ++i) {
 					xid = I + i;
 					yid = J + j;
 					fbuff = f[(((oc * icf + ic) * yf + j + fys) * xf + i + fxs) * f_displ];

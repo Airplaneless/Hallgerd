@@ -89,25 +89,56 @@ class Array:
         cl.wait_for_events([event, ])
         return x[:self.shape[0], :self.shape[1]]
 
+    def fconv2d(self, other, fshape, imgshape, channels, padding=0):
+        imgX, imgY = imgshape
+        imgOC, imgIC = channels
+        
+        assert self.shape[0] == imgX * imgY * imgOC
+        assert other.shape[0] == imgX * imgY * imgIC
+
+        ciI = np.int32(imgIC);  coI = np.int32(imgOC)
+        xI = np.int32(imgX);    yI = np.int32(imgY)
+        icf = np.int32(imgIC);  ocf = np.int32(imgOC);
+
+        iI_displ = np.int32(self.bshape[0])
+        oI_displ = np.int32(other.bshape[0])
+        #f_displ = np.int32(filter.bshape[0])
+        padding = np.int32(padding)
+
+        outX = imgX + imgX - 1
+        outY = imgY + imgY - 1
+
+        cpu_earr = np.empty((imgIC * imgOC * outX * outY, 1), dtype=self.device.DTYPE)
+        cpu_earr = self.device.guardShapes(cpu_earr)
+        resbuff = cl.Buffer(self.device.ctx, cl.mem_flags.READ_WRITE, size=cpu_earr.nbytes)
+        res = Array(self.device, resbuff, (imgIC * imgOC * outX * outY, 1), cpu_earr.shape)
+
+        global_sizes = (int(outX), int(outY), int(self.shape[1]))
+        local_sizes = None
+
+        event = self.device.prg.fconv2d(self.device.queue, global_sizes, local_sizes,
+                                       ciI, coI, xI, yI,
+                                       icf, ocf, xI, yI,
+                                       iI_displ, oI_displ,
+                                       padding,
+                                       self.buffer, other.buffer, res.buffer)
+        cl.wait_for_events([event, ])
+        return res
+
     def conv2d(self, filter, fshape, imgshape, channels, padding=0):
         imgX, imgY = imgshape
         imgIC, imgOC = channels
-        assert len(fshape) == 2
+
         assert self.shape[0] == imgX * imgY * imgIC
         assert filter.shape[0] == fshape[0] * fshape[1] * imgIC * imgOC
         assert filter.shape[1] == 1
 
-        cI = np.int32(imgIC)
-        xI = np.int32(imgX)
-        yI = np.int32(imgY)
-        icf = np.int32(imgIC)
-        ocf = np.int32(imgOC)
-        xf = np.int32(fshape[0])
-        yf = np.int32(fshape[1])
+        cI = np.int32(imgIC);   xI = np.int32(imgX);    yI = np.int32(imgY)
+        icf = np.int32(imgIC);  ocf = np.int32(imgOC)
+        xf = np.int32(fshape[0]);   yf = np.int32(fshape[1])
         f_displ = np.int32(filter.bshape[0])
         img_displ = np.int32(self.bshape[0])
         padding = np.int32(padding)
-
 
         cpu_earr = np.empty((imgX * imgY * imgOC, self.bshape[0]), dtype=self.device.DTYPE)
         cpu_earr = self.device.guardShapes(cpu_earr)
