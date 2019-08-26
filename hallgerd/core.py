@@ -10,13 +10,14 @@ SUPPORTED_LOSSES = ['mse', 'cross_entropy']
 
 class Sequential:
 
-    def __init__(self, device : Device, lr=1e-3, batch_size=4, epochs=1, loss='mse', verbose=False):
+    def __init__(self, device : Device, lr=1e-3, batch_size=4, epochs=1, loss='mse', dimages=None, verbose=False):
         assert loss in SUPPORTED_LOSSES
         self.gpu = device
         self.loss = loss
         self.lr = lr
         self.bs = batch_size
         self.epochs = epochs
+        self.dimages = dimages
         self.layers = list()
         self.history = {}
         self.verbose = verbose
@@ -26,7 +27,11 @@ class Sequential:
         self.layers.append(layer)
 
     def __call__(self, x):
-        xa = self.gpu.array(x.copy())
+        if self.dimages:
+            imgx, imgy, ch = self.dimages
+            xa = self.gpu.image(x.copy(), (imgx, imgy), (ch,))
+        else:
+            xa = self.gpu.array(x.copy())
         for layer in self.layers:
             xa = layer(xa)
         return xa.to_cpu()
