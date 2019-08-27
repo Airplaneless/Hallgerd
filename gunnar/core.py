@@ -200,8 +200,10 @@ class Image(Array):
         iI_displ = np.int32(self.bshape[1])
         oI_displ = np.int32(res.bshape[1])
         
-        global_sizes = (int(imgX), int(imgY))
-        local_sizes = None
+        gs0 = (imgX // self.device.CTSM + 1) * self.device.CTSM
+        gs1 = (imgY // self.device.CTSN + 1) * self.device.CTSN
+        global_sizes = (int(gs0), int(gs1))
+        local_sizes = (int(self.device.CTS), int(self.device.CTS))
         
         event = self.device.prg.filtercrop(self.device.queue, global_sizes, local_sizes,
                                            imgIC, imgOC, xI, yI,
@@ -211,7 +213,12 @@ class Image(Array):
         cl.wait_for_events([event, ])
         return res
 
-    def fconv2d(self, other, padding=0):
+    def fconv2d(self, other, area, padding=0):
+        xcrop, ycrop = area
+        oimgX = np.int32(xcrop[1] - xcrop[0])
+        oimgY = np.int32(ycrop[1] - ycrop[0])
+        x1 = np.int32(xcrop[0]);    x2 = np.int32(xcrop[1])
+        y1 = np.int32(ycrop[0]);    y2 = np.int32(ycrop[1])
         assert len(self.channels) == 1
         assert len(other.channels) == 1
         imgX, imgY = self.image_shape
@@ -233,19 +240,22 @@ class Image(Array):
         outX = imgX + imgX - 1
         outY = imgY + imgY - 1
 
-        cpu_earr = np.empty((imgIC * imgOC * outX * outY, 1), dtype=self.device.DTYPE)
+        cpu_earr = np.empty((imgIC * imgOC * oimgX * oimgY, 1), dtype=self.device.DTYPE)
         cpu_earr = self.device.guardShapes(cpu_earr)
         resbuff = cl.Buffer(self.device.ctx, cl.mem_flags.READ_WRITE, size=cpu_earr.nbytes)
-        res = Image(self.device, resbuff, (imgIC * imgOC * outX * outY, 1), cpu_earr.shape, (outX, outY), (imgOC, imgIC))
+        res = Image(self.device, resbuff, (imgIC * imgOC * oimgX * oimgY, 1), cpu_earr.shape, (oimgX, oimgY), (imgOC, imgIC))
 
-        global_sizes = (int(outX), int(outY))
-        local_sizes = None
+        gs0 = (oimgX // self.device.CTSM + 1) * self.device.CTSM
+        gs1 = (oimgY // self.device.CTSN + 1) * self.device.CTSN
+        global_sizes = (int(gs0), int(gs1))
+        local_sizes = (int(self.device.CTS), int(self.device.CTS))
 
         event = self.device.prg.fconv2d(self.device.queue, global_sizes, local_sizes,
                                        ciI, coI, xI, yI,
                                        icf, ocf, xI, yI,
-                                       iI_displ, oI_displ,
+                                       oimgX, oimgY, iI_displ, oI_displ,
                                        padding, batches,
+                                       x1, x2, y1, y2,
                                        self.buffer, other.buffer, res.buffer)
         cl.wait_for_events([event, ])
         return res
@@ -260,7 +270,7 @@ class Image(Array):
         else:
             imgOC, imgIC = filter.channels
         fshape = filter.image_shape
-        #print(imgX, imgY, imgIC, imgOC, self.shape)            
+
         assert self.shape[0] == imgX * imgY * imgIC
         assert filter.shape[0] == fshape[0] * fshape[1] * imgIC * imgOC
         assert filter.shape[1] == 1
@@ -271,20 +281,24 @@ class Image(Array):
         f_displ = np.int32(filter.bshape[1])
         img_displ = np.int32(self.bshape[1])
         padding = np.int32(padding)
+        batches = np.int32(self.shape[1])
 
         cpu_earr = np.empty((imgX * imgY * imgOC, self.shape[1]), dtype=self.device.DTYPE)
         cpu_earr = self.device.guardShapes(cpu_earr)
         resbuff = cl.Buffer(self.device.ctx, cl.mem_flags.READ_WRITE, size=cpu_earr.nbytes)
         res = Image(self.device, resbuff, (imgX * imgY * imgOC, self.shape[1]), cpu_earr.shape, (imgX, imgY), (imgOC,))
 
-        global_sizes = (int(imgX), int(imgY), int(self.shape[1]))
-        local_sizes = None
-
+        gs0 = (imgX // self.device.CTSM + 1) * self.device.CTSM
+        gs1 = (imgY // self.device.CTSN + 1) * self.device.CTSN
+        gs2 = (batches // self.device.CTSK + 1) * self.device.CTSK
+        global_sizes = (int(gs0), int(gs1), int(gs2))
+        local_sizes = (int(self.device.CTS/self.device.IBS), int(self.device.CTS/self.device.IBS), int(self.device.IBS * 2))
+        
         event = self.device.prg.conv2d(self.device.queue, global_sizes, local_sizes,
                                        cI, xI, yI,
                                        icf, ocf, xf, yf,
                                        f_displ, img_displ,
-                                       padding,
+                                       padding, batches,
                                        self.buffer, filter.buffer, res.buffer)
         cl.wait_for_events([event, ])
         return res
@@ -300,7 +314,12 @@ class Device(metaclass=Singleton):
         self.TSM = kwargs['TSM'] if 'TSM' in kwargs else 128
         self.TSN = kwargs['TSN'] if 'TSN' in kwargs else 128
         self.TSK = kwargs['TSK'] if 'TSK' in kwargs else 8
+        self.CTSM = kwargs['CTSM'] if 'CTSM' in kwargs else 64
+        self.CTSN = kwargs['CTSN'] if 'CTSN' in kwargs else 64
+        self.CTSK = kwargs['CTSK'] if 'CTSK' in kwargs else 64
+        self.CTS = kwargs['CTS'] if 'CTS' in kwargs else 16
         self.TS = kwargs['TS'] if 'TS' in kwargs else 16
+        self.IBS = kwargs['IBS'] if 'IBS' in kwargs else 4
         self.WPTM = kwargs['WPTM'] if 'WPTM' in kwargs else 8
         self.WPTN = kwargs['WPTN'] if 'WPTN' in kwargs else 8
         self.ctx = cl.Context(devices)

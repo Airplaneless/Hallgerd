@@ -36,6 +36,9 @@ def d_sigmoid(sx):
 
 class TestGunnar(unittest.TestCase):
 
+    def test_conv(self):
+        pass
+
     def test_sigmoid(self):
         devices = Device.getDevices()
         device = list(devices.keys())[0]

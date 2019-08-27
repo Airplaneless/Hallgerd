@@ -66,12 +66,15 @@ class Conv2D(AbstractLayer):
             err = self.y.drelu() * err
         if self.activation == 'softmax':
             err = self.y.dsoftmax() * err
-        self.dweight = err.fconv2d(self.x, padding=self.padding)
-        xpad = (self.dweight.image_shape[0] - self.weight.image_shape[0]) // 2
-        ypad = (self.dweight.image_shape[1] - self.weight.image_shape[1]) // 2
-        xarea = (xpad, self.dweight.image_shape[0] - xpad)
-        yarea = (ypad, self.dweight.image_shape[1] - ypad)
-        self.dweight = self.dweight.crop((xarea, yarea)).scale(lr / (self.kernel_size[0]*self.kernel_size[1]))
+        # self.dweight = err.fconv2d(self.x, padding=self.padding)
+        fxs = self.x.image_shape[0] * 2 - 1
+        fys = self.x.image_shape[1] * 2 - 1
+        xpad = (fxs - self.weight.image_shape[0]) // 2
+        ypad = (fys - self.weight.image_shape[1]) // 2
+        xarea = (xpad, fxs - xpad)
+        yarea = (ypad, fys - ypad)
+        self.dweight = err.fconv2d(self.x, area=(xarea, yarea), padding=self.padding).scale(lr / (self.kernel_size[0]*self.kernel_size[1]))
+        # self.dweight = self.dweight.crop((xarea, yarea)).scale(lr / (self.kernel_size[0]*self.kernel_size[1]))
         self.weight = self.weight + self.dweight
         error = err.conv2d(self.weight, padding=self.padding, reverse=True)
         return error

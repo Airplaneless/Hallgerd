@@ -16,17 +16,19 @@ __kernel void filtercrop(const int ciI, const int coI, const int xI, const int y
 	floatX buff;
 	int imgI;
 	int imgJ;
-	// for each output channel
-	for (int oc = 0; oc < coI; ++oc) {
-		// for each input channel
-		for (int ic = 0; ic < ciI; ++ic) {
-			imgI = I + x1;
-			imgJ = J + y1;
-			buff = Img[(((oc * ciI + ic) * yI + imgJ) * xI + imgI) * iI_displ];
-			//if (imgI == 1 && imgJ == 0) {
-			//	printf("I: %d\tJ: %d\toc: %d\tic: %d\tbuff = %f\n", I, J, oc, ic, buff);
-			//}
-			res[(((oc * ciI + ic) * y_displ + J) * x_displ + I) * oI_displ] = buff;
+	if (I < x_displ && J < y_displ) {
+		// for each output channel
+		for (int oc = 0; oc < coI; ++oc) {
+			// for each input channel
+			for (int ic = 0; ic < ciI; ++ic) {
+				imgI = I + x1;
+				imgJ = J + y1;
+				buff = Img[(((oc * ciI + ic) * yI + imgJ) * xI + imgI) * iI_displ];
+				//if (imgI == 1 && imgJ == 0) {
+				//	printf("I: %d\tJ: %d\toc: %d\tic: %d\tbuff = %f\n", I, J, oc, ic, buff);
+				//}
+				res[(((oc * ciI + ic) * y_displ + J) * x_displ + I) * oI_displ] = buff;
+			}
 		}
 	}
 }
@@ -34,8 +36,9 @@ __kernel void filtercrop(const int ciI, const int coI, const int xI, const int y
 
 __kernel void fconv2d(const int ciI, const int coI, const int xI, const int yI,
 					  const int icf, const int ocf, const int xf, const int yf,
-					  const int iI_displ, const int oI_displ,
+					  const int x_displ, const int y_displ, const int iI_displ, const int oI_displ,
 					  const int padding, const int batches,
+					  const int x1, const int x2, const int y1, const int y2,
 					  __global floatX * oImg,
 					  __global floatX * iImg,
 					  __global floatX * df) 
@@ -47,47 +50,50 @@ __kernel void fconv2d(const int ciI, const int coI, const int xI, const int yI,
 	floatX rres;
 	int xid;
 	int yid;
+	int imgI;
+	int imgJ;
 	floatX oImg_buff;
 	floatX iImg_buff;
-	int fxs = xf / 2;
+	int fxs = xf / 2 ;
 	int fys = yf / 2;
-	int x_displ = xI * 2 - 1;
-	int y_displ = yI * 2 - 1;
-	
-	// for each output channel
-	for (int oc = 0; oc < ocf; ++oc) {
-		// for each input channel
-		for (int ic = 0; ic < icf; ++ic) {
-			// for each batch
-			rres = 0.0;
-			for (int batch_id = 0; batch_id < batches; ++batch_id) {
-				res = 0.0;
-				for (int j = -fys; j < fys + (yf % 2); ++j) {
-					for (int i = -fxs; i < fxs + (xf % 2); ++i) {
-						xid = I + i - fxs;
-						yid = J + j - fys;
-						if (xid >= 0 && xid < xI && yid >= 0 && yid < yI) {
-							oImg_buff = oImg[((oc * yI + yid) * xI + xid) * oI_displ + batch_id];
-							iImg_buff = iImg[((ic * yI + j + fys) * xI + i + fxs) * iI_displ + batch_id];
-						}
-						else {
-							if (padding == 0) {
-								oImg_buff = 0.0;
-								iImg_buff = 0.0;
-							}
-							else if (padding == 1) {
-								xid = (xid % xI + xI) % xI;
-								yid = (yid % yI + yI) % yI;
+	if (I < x_displ && J < y_displ) {
+		// for each output channel
+		for (int oc = 0; oc < ocf; ++oc) {
+			// for each input channel
+			for (int ic = 0; ic < icf; ++ic) {
+				// for each batch
+				rres = 0.0;
+				for (int batch_id = 0; batch_id < batches; ++batch_id) {
+					res = 0.0;
+					for (int j = -fys; j < fys + (yf % 2); ++j) {
+						for (int i = -fxs; i < fxs + (xf % 2); ++i) {
+							xid = I + i - fxs;
+							yid = J + j - fys;
+							xid = xid + x1;
+							yid = yid + y1;
+							if (xid >= 0 && xid < xI && yid >= 0 && yid < yI) {
 								oImg_buff = oImg[((oc * yI + yid) * xI + xid) * oI_displ + batch_id];
 								iImg_buff = iImg[((ic * yI + j + fys) * xI + i + fxs) * iI_displ + batch_id];
 							}
+							else {
+								if (padding == 0) {
+									oImg_buff = 0.0;
+									iImg_buff = 0.0;
+								}
+								else if (padding == 1) {
+									xid = (xid % xI + xI) % xI;
+									yid = (yid % yI + yI) % yI;
+									oImg_buff = oImg[((oc * yI + yid) * xI + xid) * oI_displ + batch_id];
+									iImg_buff = iImg[((ic * yI + j + fys) * xI + i + fxs) * iI_displ + batch_id];
+								}
+							}
+							res += oImg_buff * iImg_buff;
 						}
-						res += oImg_buff * iImg_buff;
 					}
+					rres += res;
 				}
-				rres += res;
+				df[(((oc * icf + ic) * y_displ + y_displ - J - 1) * x_displ + x_displ - I - 1) * iI_displ] = rres / batches;
 			}
-			df[(((oc * icf + ic) * y_displ + y_displ - J - 1) * x_displ + x_displ - I - 1) * iI_displ] = rres / batches;
 		}
 	}
 }
@@ -96,7 +102,7 @@ __kernel void fconv2d(const int ciI, const int coI, const int xI, const int yI,
 __kernel void conv2d(const int cI, const int xI, const int yI,
 					 const int icf, const int ocf, const int xf, const int yf,
 					 const int f_displ, const int img_displ,
-					 const int padding,
+					 const int padding, const int batches,
 					 __global floatX * Img,
 					 __global floatX * f,
 					 __global floatX * OImg) 
@@ -111,39 +117,41 @@ __kernel void conv2d(const int cI, const int xI, const int yI,
 	int yid;
 	int fxs = xf / 2;
 	int fys = yf / 2;
-	// for each output channel
-	for (int oc = 0; oc < ocf; ++oc) {
-		res = 0.0;
-		// for each input channel
-		for (int ic = 0; ic < icf; ++ic) {
-			// for each x, y if filter
-			for (int j = -fys; j < fys + (yf % 2); ++j) {
-				for (int i = -fxs; i < fxs + (xf % 2); ++i) {
-					xid = I + i;
-					yid = J + j;
-					fbuff = f[(((oc * icf + ic) * yf + j + fys) * xf + i + fxs) * f_displ];
-					if (xid >= 0 && xid < xI && yid >= 0 && yid < yI) {
-						Ibuff = Img[((ic * yI + yid) * xI + xid) * img_displ + batch_id];
-					}
-					else {
-						if (padding == 0) {
-							Ibuff = 0.0;
-						}
-						else if (padding == 1) {
-							xid = (xid % xI + xI) % xI;
-							yid = (yid % yI + yI) % yI;
-							//printf("xid: %d\tyid: %d", xid, yid);
+	if (I < xI && J < yI && batch_id < batches) {
+		// for each output channel
+		for (int oc = 0; oc < ocf; ++oc) {
+			res = 0.0;
+			// for each input channel
+			for (int ic = 0; ic < icf; ++ic) {
+				// for each x, y if filter
+				for (int j = -fys; j < fys + (yf % 2); ++j) {
+					for (int i = -fxs; i < fxs + (xf % 2); ++i) {
+						xid = I + i;
+						yid = J + j;
+						fbuff = f[(((oc * icf + ic) * yf + j + fys) * xf + i + fxs) * f_displ];
+						if (xid >= 0 && xid < xI && yid >= 0 && yid < yI) {
 							Ibuff = Img[((ic * yI + yid) * xI + xid) * img_displ + batch_id];
 						}
+						else {
+							if (padding == 0) {
+								Ibuff = 0.0;
+							}
+							else if (padding == 1) {
+								xid = (xid % xI + xI) % xI;
+								yid = (yid % yI + yI) % yI;
+								//printf("xid: %d\tyid: %d", xid, yid);
+								Ibuff = Img[((ic * yI + yid) * xI + xid) * img_displ + batch_id];
+							}
+						}
+						//printf("%f\n", Img[(1 * xI + 1) * img_displ + 1]);
+						//printf("I: %d\tJ: %d\ti: %d\tj: %d\tic: %d\toc: %d\tf= %f\tImg=%f\n", I, J, i, j, ic, oc, fbuff, Ibuff);
+						res += Ibuff * fbuff;
 					}
-					//printf("%f\n", Img[(1 * xI + 1) * img_displ + 1]);
-					//printf("I: %d\tJ: %d\ti: %d\tj: %d\tic: %d\toc: %d\tf= %f\tImg=%f\n", I, J, i, j, ic, oc, fbuff, Ibuff);
-					res += Ibuff * fbuff;
 				}
 			}
+			//printf("I: %d\tJ: %d\t res: %f\n", I, J, res);
+			OImg[((oc * yI + J) * xI + I) * img_displ + batch_id] = res;
 		}
-		//printf("I: %d\tJ: %d\t res: %f\n", I, J, res);
-		OImg[((oc * yI + J) * xI + I) * img_displ + batch_id] = res;
 	}
 }
 
