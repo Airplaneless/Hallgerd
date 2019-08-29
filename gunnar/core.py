@@ -28,6 +28,27 @@ class Array:
         self.shape = shape
         self.bshape = bshape
 
+    def im2col(self, batches, C, H, W, fh, fw, stride):
+        batches = np.int32(batches);    C = np.int32(C)
+        H = np.int32(H);    W = np.int32(W)
+        nfh = (H - fh) // stride + 1
+        nfw = (W - fw) // stride + 1
+        M = np.int32(nfh * nfw * batches);  N = np.int32(C * fh * fw)
+
+        cpu_earr = np.empty((M, N), dtype=self.device.DTYPE)
+        cpu_earr = self.device.guardShapes(cpu_earr)
+        resbuff = cl.Buffer(self.device.ctx, cl.mem_flags.READ_WRITE, size=cpu_earr.nbytes)
+        res = Array(self.device, resbuff, (M, N), cpu_earr.shape)
+
+        global_sizes = (int(res.bshape[0]), int(res.bshape[0]))
+        local_sizes = (int(self.device.TS), int(self.device.TS))
+
+        event = self.device.prg.im2col(self.device.queue, global_sizes, local_sizes, self.buffer, res.buffer)
+        cl.wait_for_events([event, ])
+        return res
+
+
+
     def sigmoid(self):
         M = np.int32(self.bshape[0])
         N = np.int32(self.bshape[1])
@@ -205,11 +226,7 @@ class Image(Array):
         global_sizes = (int(gs0), int(gs1))
         local_sizes = (int(self.device.CTS), int(self.device.CTS))
         
-        event = self.device.prg.filtercrop(self.device.queue, global_sizes, local_sizes,
-                                           imgIC, imgOC, xI, yI,
-                                           x1, x2, y1, y2,
-                                           imgX, imgY, iI_displ, oI_displ,
-                                           self.buffer, res.buffer)
+        event = self.device.prg.filtercrop(self.device.queue, global_sizes, local_sizes, imgIC, imgOC, xI, yI, x1, x2, y1, y2, imgX, imgY, iI_displ, oI_displ, self.buffer, res.buffer)
         cl.wait_for_events([event, ])
         return res
 
@@ -250,13 +267,7 @@ class Image(Array):
         global_sizes = (int(gs0), int(gs1))
         local_sizes = (int(self.device.CTS), int(self.device.CTS))
 
-        event = self.device.prg.fconv2d(self.device.queue, global_sizes, local_sizes,
-                                       ciI, coI, xI, yI,
-                                       icf, ocf, xI, yI,
-                                       oimgX, oimgY, iI_displ, oI_displ,
-                                       padding, batches,
-                                       x1, x2, y1, y2,
-                                       self.buffer, other.buffer, res.buffer)
+        event = self.device.prg.fconv2d(self.device.queue, global_sizes, local_sizes, ciI, coI, xI, yI, icf, ocf, xI, yI, oimgX, oimgY, iI_displ, oI_displ, padding, batches, x1, x2, y1, y2, self.buffer, other.buffer, res.buffer)
         cl.wait_for_events([event, ])
         return res
 
@@ -274,6 +285,8 @@ class Image(Array):
         assert self.shape[0] == imgX * imgY * imgIC
         assert filter.shape[0] == fshape[0] * fshape[1] * imgIC * imgOC
         assert filter.shape[1] == 1
+        assert filter.image_shape[0] <= self.device.CTS / self.device.IBS
+        assert filter.image_shape[1] <= self.device.CTS / self.device.IBS
 
         cI = np.int32(imgIC);   xI = np.int32(imgX);    yI = np.int32(imgY)
         icf = np.int32(imgIC);  ocf = np.int32(imgOC)
@@ -294,15 +307,9 @@ class Image(Array):
         global_sizes = (int(gs0), int(gs1), int(gs2))
         local_sizes = (int(self.device.CTS/self.device.IBS), int(self.device.CTS/self.device.IBS), int(self.device.IBS * 2))
         
-        event = self.device.prg.conv2d(self.device.queue, global_sizes, local_sizes,
-                                       cI, xI, yI,
-                                       icf, ocf, xf, yf,
-                                       f_displ, img_displ,
-                                       padding, batches,
-                                       self.buffer, filter.buffer, res.buffer)
+        event = self.device.prg.conv2d(self.device.queue, global_sizes, local_sizes, cI, xI, yI, icf, ocf, xf, yf, f_displ, img_displ, padding, batches, self.buffer, filter.buffer, res.buffer)
         cl.wait_for_events([event, ])
         return res
-
 
 
 class Device(metaclass=Singleton):
@@ -324,8 +331,7 @@ class Device(metaclass=Singleton):
         self.WPTN = kwargs['WPTN'] if 'WPTN' in kwargs else 8
         self.ctx = cl.Context(devices)
         self.queue = cl.CommandQueue(self.ctx)
-        options = "-DTSM={} -DTSN={} -DTSK={} -DWPTM={} -DWPTN={} -DfloatX={} -DTS={} -cl-mad-enable -cl-fast-relaxed-math".format(
-            self.TSM, self.TSN, self.TSK, self.WPTM, self.WPTN, floatX, self.TS)
+        options = "-DTSM={} -DTSN={} -DTSK={} -DWPTM={} -DWPTN={} -DfloatX={} -DTS={} -DCTS={} -DIBS={} -cl-mad-enable -cl-fast-relaxed-math".format(self.TSM, self.TSN, self.TSK, self.WPTM, self.WPTN, floatX, self.TS, self.CTS, self.IBS)
         self.prg = cl.Program(self.ctx, MAT_KERNELS).build(options)
 
     def guardShapes(self, M):
