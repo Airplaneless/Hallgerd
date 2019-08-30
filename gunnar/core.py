@@ -6,7 +6,7 @@ from functools import reduce
 from gunnar.kernels import MAT_KERNELS
 from hallgerd.losses import softmax
 
-SUPPORTED_ACTIVATIONS = ['sigmoid', 'relu', 'softmax']
+SUPPORTED_ACTIVATIONS = ['sigmoid', 'relu', 'softmax', 'linear']
 DTYPES = {np.float16 : 'half', np.float32 : 'float', np.float64 : 'double'}
 
 
@@ -47,8 +47,6 @@ class Array:
         cl.wait_for_events([event, ])
         return res
 
-
-
     def sigmoid(self):
         M = np.int32(self.bshape[0])
         N = np.int32(self.bshape[1])
@@ -64,6 +62,24 @@ class Array:
         global_sizes = (int(M), int(N))
         local_sizes = (int(self.device.TS), int(self.device.TS))
         event = self.device.prg.dsigmoid(self.device.queue, global_sizes, local_sizes, M, N, self.buffer, self.buffer)
+        cl.wait_for_events([event, ])
+        return self
+
+    def linear(self):
+        M = np.int32(self.bshape[0])
+        N = np.int32(self.bshape[1])
+        global_sizes = (int(M), int(N))
+        local_sizes = (int(self.device.TS), int(self.device.TS))
+        event = self.device.prg.linear(self.device.queue, global_sizes, local_sizes, M, N, self.buffer, self.buffer)
+        cl.wait_for_events([event, ])
+        return self
+
+    def dlinear(self):
+        M = np.int32(self.bshape[0])
+        N = np.int32(self.bshape[1])
+        global_sizes = (int(M), int(N))
+        local_sizes = (int(self.device.TS), int(self.device.TS))
+        event = self.device.prg.dlinear(self.device.queue, global_sizes, local_sizes, M, N, self.buffer, self.buffer)
         cl.wait_for_events([event, ])
         return self
 

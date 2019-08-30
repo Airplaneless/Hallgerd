@@ -70,12 +70,12 @@ __kernel void dconv2d(const int ciI, const int coI, const int xI, const int yI,
                     for (int i = -fxs; i < fxs + (xf % 2); ++i) {
                         // load subkernel for each CTSxCTS tile
                         if ((i + fxs) % CTS == 0 || (j + fys) % CTS == 0) {
-                            krnl[li][lj] = oImg[((oc * yI + lj + (j/CTS)*CTS) * xI + li + (i/CTS)*CTS) * oI_displ + batch_id];
+                            krnl[li][lj] = iImg[((oc * yI + lj + (j/CTS)*CTS) * xI + li + (i/CTS)*CTS) * oI_displ + batch_id];
                         }
                         barrier(CLK_LOCAL_MEM_FENCE);
                         if (I < x_displ && J < y_displ) {
-                            xid = I + i + x1;
-                            yid = J + j + y1;
+                            xid = I + i - fxs + x1;
+                            yid = J + j - fys + y1;
                             if (xid >= 0 && xid < xI && yid >= 0 && yid < yI) {
                                 oImg_buff = oImg[((oc * yI + yid) * xI + xid) * oI_displ + batch_id];
                             }
@@ -483,6 +483,64 @@ __kernel void dsigmoid(const int M,
 	// Store the sum result (coalesced)
 	if (ID0 < M && ID1 < N) {
 		B[ID1 * M + ID0] = bufferA[tx][ty] * (1 - bufferA[tx][ty]);
+	}
+}
+
+
+__kernel void linear(const int M,
+	               const int N,
+	               __global floatX * A,
+	               __global floatX * B)
+{
+	// // Thread identifiers
+	const int tx = get_local_id(0);
+	const int ty = get_local_id(1);
+	const int ID0 = get_group_id(0) * TS + tx; // 0..M
+	const int ID1 = get_group_id(1) * TS + ty; // 0..N
+
+	// Set-up the local memory for shuffling
+	__local floatX bufferA[TS][TS];
+
+	// Swap the x and y coordinates to perform the rotation (coalesced)
+	if (ID0 < M && ID1 < N) {
+		bufferA[tx][ty] = A[ID1 * M + ID0];
+	}
+
+	// Synchronise all threads
+	barrier(CLK_LOCAL_MEM_FENCE);
+
+	// Store the sum result (coalesced)
+	if (ID0 < M && ID1 < N) {
+		B[ID1 * M + ID0] = bufferA[tx][ty];
+	}
+}
+
+
+__kernel void dlinear(const int M,
+	               const int N,
+	               __global floatX * A,
+	               __global floatX * B)
+{
+	// // Thread identifiers
+	const int tx = get_local_id(0);
+	const int ty = get_local_id(1);
+	const int ID0 = get_group_id(0) * TS + tx; // 0..M
+	const int ID1 = get_group_id(1) * TS + ty; // 0..N
+
+	// Set-up the local memory for shuffling
+	__local floatX bufferA[TS][TS];
+
+	// Swap the x and y coordinates to perform the rotation (coalesced)
+	if (ID0 < M && ID1 < N) {
+		bufferA[tx][ty] = A[ID1 * M + ID0];
+	}
+
+	// Synchronise all threads
+	barrier(CLK_LOCAL_MEM_FENCE);
+
+	// Store the sum result (coalesced)
+	if (ID0 < M && ID1 < N) {
+		B[ID1 * M + ID0] = bufferA[tx][ty];
 	}
 }
 

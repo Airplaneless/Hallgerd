@@ -1,8 +1,6 @@
 import numpy as np
 
-from gunnar.core import Device, Array, Image
-
-SUPPORTED_ACTIVATIONS = ['sigmoid', 'relu', 'softmax']
+from gunnar.core import Device, Array, Image, SUPPORTED_ACTIVATIONS
 
 
 class AbstractLayer:
@@ -51,6 +49,8 @@ class Conv2D(AbstractLayer):
     def __call__(self, x: Image):
         self.x = x
         y = x.conv2d(self.weight, padding=self.padding)
+        if self.activation == 'linear':
+            self.y = y.linear()
         if self.activation == 'sigmoid':
             self.y = y.sigmoid()
         if self.activation == 'relu':
@@ -60,6 +60,8 @@ class Conv2D(AbstractLayer):
         return self.y
 
     def backward(self, err, lr):
+        if self.activation == 'sigmoid':
+            err = self.y.dlinear() * err
         if self.activation == 'sigmoid':
             err = self.y.dsigmoid() * err
         if self.activation == 'relu':
@@ -72,7 +74,7 @@ class Conv2D(AbstractLayer):
         ypad = (fys - self.weight.image_shape[1]) // 2
         xarea = (xpad, fxs - xpad)
         yarea = (ypad, fys - ypad)
-        self.dweight = err.dconv2d(self.x, area=(xarea, yarea), padding=self.padding).scale(-lr)
+        self.dweight = err.dconv2d(self.x, area=(xarea, yarea), padding=0).scale(lr)
         self.weight = self.weight + self.dweight
         error = err.conv2d(self.weight, padding=self.padding, reverse=True)
         return error
