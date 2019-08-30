@@ -70,12 +70,12 @@ __kernel void dconv2d(const int ciI, const int coI, const int xI, const int yI,
                     for (int i = -fxs; i < fxs + (xf % 2); ++i) {
                         // load subkernel for each CTSxCTS tile
                         if ((i + fxs) % CTS == 0 || (j + fys) % CTS == 0) {
-                            krnl[li][lj] = iImg[((oc * yI + lj + (j/CTS)*CTS) * xI + li + (i/CTS)*CTS) * oI_displ + batch_id];
+                            krnl[li][lj] = iImg[((ic * yI + lj + (j/CTS)*CTS) * xI + li + (i/CTS)*CTS) * iI_displ + batch_id];
                         }
                         barrier(CLK_LOCAL_MEM_FENCE);
                         if (I < x_displ && J < y_displ) {
                             xid = I + i - fxs + x1;
-                            yid = J + j - fys + y1;
+                            yid = J + j -fys + y1;
                             if (xid >= 0 && xid < xI && yid >= 0 && yid < yI) {
                                 oImg_buff = oImg[((oc * yI + yid) * xI + xid) * oI_displ + batch_id];
                             }

@@ -35,7 +35,8 @@ class Conv2D(AbstractLayer):
         self.activation = activation
         self.kernel_size = kernel_size
         self.padding = padding
-        self.weight_np = np.random.randn(out_channels*in_channels*kernel_size[0]*kernel_size[1], 1) * np.sqrt(2 / (kernel_size[0]*kernel_size[1]))
+        self.weight_np = np.random.randn(out_channels*in_channels*kernel_size[0]*kernel_size[1], 1)
+        self.weight_np *= np.sqrt(2 / self.weight_np.size)
         self.bias_np = np.zeros((in_channels*out_channels, 1))
 
     def __connect_device__(self, device: Device):
@@ -60,7 +61,7 @@ class Conv2D(AbstractLayer):
         return self.y
 
     def backward(self, err, lr):
-        if self.activation == 'sigmoid':
+        if self.activation == 'linear':
             err = self.y.dlinear() * err
         if self.activation == 'sigmoid':
             err = self.y.dsigmoid() * err
@@ -76,7 +77,7 @@ class Conv2D(AbstractLayer):
         yarea = (ypad, fys - ypad)
         self.dweight = err.dconv2d(self.x, area=(xarea, yarea), padding=0).scale(lr)
         self.weight = self.weight + self.dweight
-        error = err.conv2d(self.weight, padding=self.padding, reverse=True)
+        error = err.conv2d(self.weight, padding=0, reverse=True)
         return error
 
 
@@ -88,31 +89,36 @@ class Dense(AbstractLayer):
         self.in_shape = inshape
         self.out_shape = outshape
         self.activation = activation
-        self.weight_np = np.random.randn(outshape, inshape) * np.sqrt(2 / (inshape))
+        self.weight_np = np.random.randn(outshape, inshape)
+        self.weight_np *= np.sqrt(2 / self.weight_np.size)
         self.bias_np = np.zeros((outshape, 1))
 
     def __call__(self, x: Array):
         self.x = x
         y = (x @ self.weight.transpose()) % self.bias
+        if self.activation == 'linear':
+            self.y = y.linear()
         if self.activation == 'sigmoid':
-            self.y = Array.sigmoid(y)
+            self.y = y.sigmoid()
         if self.activation == 'relu':
-            self.y = Array.relu(y)
+            self.y = y.relu()
         if self.activation == 'softmax':
-            self.y = Array.softmax(y)
+            self.y = y.softmax()
         return self.y
 
     def backward(self, err, lr):
+        if self.activation == 'linear':
+            err = err * self.y.dlinear()
         if self.activation == 'sigmoid':
-            err = err * Array.dsigmoid(self.y)
+            err = err * self.y.dsigmoid()
         if self.activation == 'relu':
-            err = err * Array.drelu(self.y)
+            err = err * self.y.drelu()
         if self.activation == 'softmax':
-            err = err * Array.dsoftmax(self.y)
+            err = err * self.y.dsoftmax()
         errT = err.transpose()
         ones = self.gpu.array(np.ones((self.x.shape[1], 1)))
-        self.dbias = (ones @ errT).scale(lr / self.in_shape)
-        self.dweight = (self.x.transpose() @ errT).scale(lr / self.in_shape)
+        self.dbias = (ones @ errT).scale(lr)
+        self.dweight = (self.x.transpose() @ errT).scale(lr)
         self.bias = self.bias + self.dbias
         self.weight = self.weight + self.dweight
         error = err @ self.weight
