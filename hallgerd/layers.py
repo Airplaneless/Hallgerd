@@ -43,13 +43,13 @@ class Conv2D(AbstractLayer):
         self.gpu = device
         self.weight = self.gpu.image(self.weight_np, self.kernel_size, (self.out_channels, self.in_channels))
         self.dweight = self.gpu.empty_image(self.weight_np.shape, self.kernel_size, (self.out_channels, self.in_channels))
-        self.bias = self.gpu.image(self.bias_np, self.kernel_size, (self.out_channels, self.in_channels))
-        self.dbias = self.gpu.empty_image(self.bias_np.shape, self.kernel_size, (self.out_channels, self.in_channels))
+        self.bias = self.gpu.array(self.bias_np)
+        self.dbias = self.gpu.empty_array(self.bias_np.shape)
         return True
 
     def __call__(self, x: Image):
         self.x = x
-        y = x.conv2d(self.weight, padding=self.padding)
+        y = x.conv2d(self.weight, padding=self.padding)# % self.bias
         if self.activation == 'linear':
             self.y = y.linear()
         if self.activation == 'sigmoid':
@@ -75,8 +75,12 @@ class Conv2D(AbstractLayer):
         ypad = (fys - self.weight.image_shape[1]) // 2
         xarea = (xpad, fxs - xpad)
         yarea = (ypad, fys - ypad)
+        # errT = err.transpose()
+        # ones = self.gpu.array(np.ones((self.x.shape[1], 1)))
+        # self.dbias = (ones @ errT).scale(lr)
         self.dweight = err.dconv2d(self.x, area=(xarea, yarea), padding=0).scale(lr)
         self.weight = self.weight + self.dweight
+        # self.bias = self.bias + self.dbias
         error = err.conv2d(self.weight, padding=0, reverse=True)
         return error
 
