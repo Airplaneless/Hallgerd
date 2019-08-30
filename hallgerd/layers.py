@@ -37,7 +37,7 @@ class Conv2D(AbstractLayer):
         self.activation = activation
         self.kernel_size = kernel_size
         self.padding = padding
-        self.weight_np = np.random.randn(out_channels*in_channels*kernel_size[0]*kernel_size[1], 1) * np.sqrt(2 / (kernel_size[0]*kernel_size[1]*in_channels*out_channels))
+        self.weight_np = np.random.randn(out_channels*in_channels*kernel_size[0]*kernel_size[1], 1) * np.sqrt(2 / (kernel_size[0]*kernel_size[1]))
         self.bias_np = np.zeros((in_channels*out_channels, 1))
 
     def __connect_device__(self, device: Device):
@@ -66,31 +66,16 @@ class Conv2D(AbstractLayer):
             err = self.y.drelu() * err
         if self.activation == 'softmax':
             err = self.y.dsoftmax() * err
-        # self.dweight = err.fconv2d(self.x, padding=self.padding)
         fxs = self.x.image_shape[0] * 2 - 1
         fys = self.x.image_shape[1] * 2 - 1
         xpad = (fxs - self.weight.image_shape[0]) // 2
         ypad = (fys - self.weight.image_shape[1]) // 2
         xarea = (xpad, fxs - xpad)
         yarea = (ypad, fys - ypad)
-        self.dweight = err.fconv2d(self.x, area=(xarea, yarea), padding=self.padding).scale(lr)
-        # self.dweight = self.dweight.crop((xarea, yarea)).scale(lr / (self.kernel_size[0]*self.kernel_size[1]))
+        self.dweight = err.dconv2d(self.x, area=(xarea, yarea), padding=self.padding).scale(-lr)
         self.weight = self.weight + self.dweight
         error = err.conv2d(self.weight, padding=self.padding, reverse=True)
         return error
-
-
-class CConv2D(AbstractLayer):
-
-    def __init__(self, in_channels, out_channels, kernel_size=(3,3), activation='sigmoid'):
-        super().__init__()
-        assert activation in SUPPORTED_ACTIVATIONS
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.activation = activation
-        self.kernel_size = kernel_size
-        self.weight_np = np.random.randn(out_channels * in_channels * kernel_size[0] * kernel_size[1], 1) * np.sqrt(2 / (kernel_size[0] * kernel_size[1] * in_channels * out_channels))
-        self.bias_np = np.zeros((in_channels * out_channels, 1))
 
 
 class Dense(AbstractLayer):
@@ -101,7 +86,7 @@ class Dense(AbstractLayer):
         self.in_shape = inshape
         self.out_shape = outshape
         self.activation = activation
-        self.weight_np = np.random.randn(outshape, inshape) * np.sqrt(2 / (inshape*outshape))
+        self.weight_np = np.random.randn(outshape, inshape) * np.sqrt(2 / (inshape))
         self.bias_np = np.zeros((outshape, 1))
 
     def __call__(self, x: Array):
@@ -125,7 +110,7 @@ class Dense(AbstractLayer):
         errT = err.transpose()
         ones = self.gpu.array(np.ones((self.x.shape[1], 1)))
         self.dbias = (ones @ errT).scale(lr / self.in_shape)
-        self.dweight = (self.x.transpose() @ errT).scale(lr)
+        self.dweight = (self.x.transpose() @ errT).scale(lr / self.in_shape)
         self.bias = self.bias + self.dbias
         self.weight = self.weight + self.dweight
         error = err @ self.weight

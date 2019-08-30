@@ -221,8 +221,8 @@ class Image(Array):
         iI_displ = np.int32(self.bshape[1])
         oI_displ = np.int32(res.bshape[1])
         
-        gs0 = (imgX // self.device.CTSM + 1) * self.device.CTSM
-        gs1 = (imgY // self.device.CTSN + 1) * self.device.CTSN
+        gs0 = (imgX // self.device.CTS + 1) * self.device.CTS
+        gs1 = (imgY // self.device.CTS + 1) * self.device.CTS
         global_sizes = (int(gs0), int(gs1))
         local_sizes = (int(self.device.CTS), int(self.device.CTS))
         
@@ -230,7 +230,7 @@ class Image(Array):
         cl.wait_for_events([event, ])
         return res
 
-    def fconv2d(self, other, area, padding=0):
+    def dconv2d(self, other, area, padding=0):
         xcrop, ycrop = area
         oimgX = np.int32(xcrop[1] - xcrop[0])
         oimgY = np.int32(ycrop[1] - ycrop[0])
@@ -262,12 +262,12 @@ class Image(Array):
         resbuff = cl.Buffer(self.device.ctx, cl.mem_flags.READ_WRITE, size=cpu_earr.nbytes)
         res = Image(self.device, resbuff, (imgIC * imgOC * oimgX * oimgY, 1), cpu_earr.shape, (oimgX, oimgY), (imgOC, imgIC))
 
-        gs0 = (oimgX // self.device.CTSM + 1) * self.device.CTSM
-        gs1 = (oimgY // self.device.CTSN + 1) * self.device.CTSN
+        gs0 = (oimgX // self.device.CTS + 1) * self.device.CTS
+        gs1 = (oimgY // self.device.CTS + 1) * self.device.CTS
         global_sizes = (int(gs0), int(gs1))
         local_sizes = (int(self.device.CTS), int(self.device.CTS))
 
-        event = self.device.prg.fconv2d(self.device.queue, global_sizes, local_sizes, ciI, coI, xI, yI, icf, ocf, xI, yI, oimgX, oimgY, iI_displ, oI_displ, padding, batches, x1, x2, y1, y2, self.buffer, other.buffer, res.buffer)
+        event = self.device.prg.dconv2d(self.device.queue, global_sizes, local_sizes, ciI, coI, xI, yI, icf, ocf, xI, yI, oimgX, oimgY, iI_displ, oI_displ, padding, batches, x1, x2, y1, y2, self.buffer, other.buffer, res.buffer)
         cl.wait_for_events([event, ])
         return res
 
@@ -301,9 +301,9 @@ class Image(Array):
         resbuff = cl.Buffer(self.device.ctx, cl.mem_flags.READ_WRITE, size=cpu_earr.nbytes)
         res = Image(self.device, resbuff, (imgX * imgY * imgOC, self.shape[1]), cpu_earr.shape, (imgX, imgY), (imgOC,))
 
-        gs0 = (imgX // self.device.CTSM + 1) * self.device.CTSM
-        gs1 = (imgY // self.device.CTSN + 1) * self.device.CTSN
-        gs2 = (batches // self.device.CTSK + 1) * self.device.CTSK
+        gs0 = (imgX // self.device.CTS + 1) * self.device.CTS
+        gs1 = (imgY // self.device.CTS + 1) * self.device.CTS
+        gs2 = (batches // self.device.CTS + 1) * self.device.CTS
         global_sizes = (int(gs0), int(gs1), int(gs2))
         local_sizes = (int(self.device.CTS/self.device.IBS), int(self.device.CTS/self.device.IBS), int(self.device.IBS * 2))
         
@@ -321,9 +321,6 @@ class Device(metaclass=Singleton):
         self.TSM = kwargs['TSM'] if 'TSM' in kwargs else 128
         self.TSN = kwargs['TSN'] if 'TSN' in kwargs else 128
         self.TSK = kwargs['TSK'] if 'TSK' in kwargs else 8
-        self.CTSM = kwargs['CTSM'] if 'CTSM' in kwargs else 64
-        self.CTSN = kwargs['CTSN'] if 'CTSN' in kwargs else 64
-        self.CTSK = kwargs['CTSK'] if 'CTSK' in kwargs else 64
         self.CTS = kwargs['CTS'] if 'CTS' in kwargs else 16
         self.TS = kwargs['TS'] if 'TS' in kwargs else 16
         self.IBS = kwargs['IBS'] if 'IBS' in kwargs else 4

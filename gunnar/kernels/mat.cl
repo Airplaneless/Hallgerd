@@ -35,7 +35,7 @@ __kernel void filtercrop(const int ciI, const int coI, const int xI, const int y
 }
 
 
-__kernel void fconv2d(const int ciI, const int coI, const int xI, const int yI,
+__kernel void dconv2d(const int ciI, const int coI, const int xI, const int yI,
 					  const int icf, const int ocf, const int xf, const int yf,
 					  const int x_displ, const int y_displ, const int iI_displ, const int oI_displ,
 					  const int padding, const int batches,
@@ -44,13 +44,12 @@ __kernel void fconv2d(const int ciI, const int coI, const int xI, const int yI,
 					  __global floatX * iImg,
 					  __global floatX * df) 
 {
-    __local floatX krnl[CTS][CTS];
-    floatX img[CTS][CTS];
-	const int I = get_global_id(0);
-	const int J = get_global_id(1);
-	const int li = get_local_id(0);
-	const int lj = get_local_id(1);
+	const int I = get_global_id(0); // 0 .. outX (= xI * 2 - 1)
+	const int J = get_global_id(1); // 0 .. outY (= yI * 2 - 1)
 	const int batch_id = 0;
+    const int li = get_local_id(0);
+	const int lj = get_local_id(1);
+	__local floatX krnl[CTS][CTS];
 	floatX res;
 	int xid;
 	int yid;
@@ -65,48 +64,39 @@ __kernel void fconv2d(const int ciI, const int coI, const int xI, const int yI,
         // for each input channel
         for (int ic = 0; ic < icf; ++ic) {
             // for each batch
-            res = 0.0;
             for (int batch_id = 0; batch_id < batches; ++batch_id) {
-                // for kernels tiles
-                for (int j = 0; j <= (yf + CTS - 1) / CTS; ++j) {
-                    for (int i = 0; i <= (xf + CTS - 1) / CTS; ++i) {
-                        // load filter tile
-                        int fi = li + i*CTS;
-                        int fj = lj + j*CTS;
-                        if (fi < xf && fj < yf) {
-                            krnl[li][lj] = iImg[((ic * yI + fj) * xI + fi) * iI_displ + batch_id];
-                        } else {
-                            krnl[li][lj] = 0.0;
+                res = 0.0;
+                for (int j = -fys; j < fys + (yf % 2); ++j) {
+                    for (int i = -fxs; i < fxs + (xf % 2); ++i) {
+                        // load subkernel for each CTSxCTS tile
+                        if ((i + fxs) % CTS == 0 || (j + fys) % CTS == 0) {
+                            krnl[li][lj] = oImg[((oc * yI + lj + (j/CTS)*CTS) * xI + li + (i/CTS)*CTS) * oI_displ + batch_id];
                         }
                         barrier(CLK_LOCAL_MEM_FENCE);
-                        // load image pixels
-                        for (int jj = 0; jj < CTS; ++jj) {
-                            for (int ii = 0; ii < CTS; ++ii) {
-                                xid = x1 + I + i*CTS + ii - CTS/2;
-                                yid = y1 + J + j*CTS + jj - CTS/2;
-                                if (xid >= 0 && xid < xI && yid >= 0 && yid < yI) {
-                                    img[ii][jj] = oImg[((oc * yI + yid) * xI + xid) * oI_displ + batch_id];
-                                } else {
-                                    if (padding == 0) {
-                                        img[ii][jj] = 0.0;
-                                    } else if (padding == 1) {
-                                        xid = (xid % xI + xI) % xI;
-                                        yid = (yid % yI + yI) % yI;
-                                        img[ii][jj] = oImg[((oc * yI + yid) * xI + xid) * oI_displ + batch_id];
-                                    }
+                        if (I < x_displ && J < y_displ) {
+                            xid = I + i + x1;
+                            yid = J + j + y1;
+                            if (xid >= 0 && xid < xI && yid >= 0 && yid < yI) {
+                                oImg_buff = oImg[((oc * yI + yid) * xI + xid) * oI_displ + batch_id];
+                            }
+                            else {
+                                if (padding == 0) {
+                                    oImg_buff = 0.0;
+                                }
+                                else if (padding == 1) {
+                                    xid = (xid % xI + xI) % xI;
+                                    yid = (yid % yI + yI) % yI;
+                                    oImg_buff = oImg[((oc * yI + yid) * xI + xid) * oI_displ + batch_id];
                                 }
                             }
-                        }
-                        // eval conv
-                        for (int jj = 0; jj < CTS; ++jj) {
-                            for (int ii = 0; ii < CTS; ++ii) {
-                                res += img[ii][jj] * krnl[ii][jj];
-                            }
+                            res += oImg_buff * krnl[(i+fxs)%CTS][(j+fys)%CTS];
                         }
                     }
                 }
             }
-            df[(((oc * icf + ic) * y_displ + y_displ - J - 1) * x_displ + x_displ - I - 1) * iI_displ] = res;
+            if (I < x_displ && J < y_displ) {
+                df[(((oc * icf + ic) * y_displ + y_displ - J - 1) * x_displ + x_displ - I - 1) * iI_displ] = res;
+            }
         }
     }
 }
@@ -121,7 +111,6 @@ __kernel void conv2d(const int cI, const int xI, const int yI,
 					 __global floatX * OImg) 
 {
     __local floatX krnl[CCTS][CCTS];
-    __local floatX bImg[CCTS][CCTS];
 	const int I = get_global_id(0);
 	const int J = get_global_id(1);
 	const int li = get_local_id(0);
@@ -142,33 +131,35 @@ __kernel void conv2d(const int cI, const int xI, const int yI,
             // Load kernel to local memory
             if (li < xf && lj < yf) {
                 krnl[li][lj] = f[(((oc * icf + ic) * yf + lj) * xf + li) * f_displ];
-            } else {
-                krnl[li][lj] = 0.0;
             }
             barrier(CLK_LOCAL_MEM_FENCE);
             // for each x, y filter
-            for (int j = -fys; j < fys + (yf % 2); ++j) {
-                for (int i = -fxs; i < fxs + (xf % 2); ++i) {
-                    xid = I + i;
-                    yid = J + j;
-                    if (xid >= 0 && xid < xI && yid >= 0 && yid < yI) {
-                        Ibuff = Img[((ic * yI + yid) * xI + xid) * img_displ + batch_id];
-                    }
-                    else {
-                        if (padding == 0) {
-                            Ibuff = 0.0;
-                        }
-                        else if (padding == 1) {
-                            xid = (xid % xI + xI) % xI;
-                            yid = (yid % yI + yI) % yI;
+            if (I < xI && J < yI && batch_id < batches) {
+                for (int j = -fys; j < fys + (yf % 2); ++j) {
+                    for (int i = -fxs; i < fxs + (xf % 2); ++i) {
+                        xid = I + i;
+                        yid = J + j;
+                        if (xid >= 0 && xid < xI && yid >= 0 && yid < yI) {
                             Ibuff = Img[((ic * yI + yid) * xI + xid) * img_displ + batch_id];
                         }
+                        else {
+                            if (padding == 0) {
+                                Ibuff = 0.0;
+                            }
+                            else if (padding == 1) {
+                                xid = (xid % xI + xI) % xI;
+                                yid = (yid % yI + yI) % yI;
+                                Ibuff = Img[((ic * yI + yid) * xI + xid) * img_displ + batch_id];
+                            }
+                        }
+                        res += Ibuff * krnl[i + fxs][j + fys];
                     }
-                    res += Ibuff * krnl[i + fxs][j + fys];
                 }
             }
         }
-        OImg[((oc * yI + J) * xI + I) * img_displ + batch_id] = res;
+        if (I < xI && J < yI && batch_id < batches) {
+            OImg[((oc * yI + J) * xI + I) * img_displ + batch_id] = res;
+        }
     }
 }
 
