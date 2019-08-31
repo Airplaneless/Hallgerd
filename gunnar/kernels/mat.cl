@@ -37,7 +37,7 @@ __kernel void filtercrop(const int ciI, const int coI, const int xI, const int y
 
 __kernel void dconv2d(const int ciI, const int coI, const int xI, const int yI,
 					  const int icf, const int ocf, const int xf, const int yf,
-					  const int x_displ, const int y_displ, const int iI_displ, const int oI_displ,
+					  const int x_displ, const int y_displ, const int iI_displ, const int oI_displ, const int f_displ,
 					  const int padding, const int batches,
 					  const int x1, const int x2, const int y1, const int y2,
 					  __global floatX * oImg,
@@ -46,7 +46,6 @@ __kernel void dconv2d(const int ciI, const int coI, const int xI, const int yI,
 {
 	const int I = get_global_id(0); // 0 .. outX (= xI * 2 - 1)
 	const int J = get_global_id(1); // 0 .. outY (= yI * 2 - 1)
-	const int batch_id = 0;
     const int li = get_local_id(0);
 	const int lj = get_local_id(1);
 	__local floatX krnl[CTS][CTS];
@@ -60,22 +59,21 @@ __kernel void dconv2d(const int ciI, const int coI, const int xI, const int yI,
 	int fxs = xf / 2 ;
 	int fys = yf / 2;
     // for each output channel
-    for (int oc = 0; oc < ocf; ++oc) {
+    for (int ic = 0; ic < icf; ++ic) {
         // for each input channel
-        for (int ic = 0; ic < icf; ++ic) {
+        for (int oc = 0; oc < ocf; ++oc) {
             // for each batch
             for (int batch_id = 0; batch_id < batches; ++batch_id) {
                 res = 0.0;
                 for (int j = -fys; j < fys + (yf % 2); ++j) {
                     for (int i = -fxs; i < fxs + (xf % 2); ++i) {
                         // load subkernel for each CTSxCTS tile
-                        if ((i + fxs) % CTS == 0 || (j + fys) % CTS == 0) {
+                        if ((i + fxs) % CTS == 0 && (j + fys) % CTS == 0) {
                             krnl[li][lj] = iImg[((ic * yI + lj + (j/CTS)*CTS) * xI + li + (i/CTS)*CTS) * iI_displ + batch_id];
                         }
                         barrier(CLK_LOCAL_MEM_FENCE);
-                        if (I < x_displ && J < y_displ) {
                             xid = I + i - fxs + x1;
-                            yid = J + j -fys + y1;
+                            yid = J + j - fys + y1;
                             if (xid >= 0 && xid < xI && yid >= 0 && yid < yI) {
                                 oImg_buff = oImg[((oc * yI + yid) * xI + xid) * oI_displ + batch_id];
                             }
@@ -91,11 +89,10 @@ __kernel void dconv2d(const int ciI, const int coI, const int xI, const int yI,
                             }
                             res += oImg_buff * krnl[(i+fxs)%CTS][(j+fys)%CTS];
                         }
-                    }
                 }
             }
             if (I < x_displ && J < y_displ) {
-                df[(((oc * icf + ic) * y_displ + y_displ - J - 1) * x_displ + x_displ - I - 1) * iI_displ] = res;
+                df[(((oc * icf + ic) * x_displ + y_displ - J - 1) * x_displ + x_displ - I - 1) * f_displ] = res;
             }
         }
     }
@@ -573,7 +570,7 @@ __kernel void relu(const int M,
 			B[ID1 * M + ID0] = bufferA[tx][ty];
 		}
 		else {
-			B[ID1 * M + ID0] = 0;
+			B[ID1 * M + ID0] = 0.01 * bufferA[tx][ty];
 		}
 	}
 }
@@ -607,7 +604,7 @@ __kernel void drelu(const int M,
 			B[ID1 * M + ID0] = 1.0;
 		}
 		else {
-			B[ID1 * M + ID0] = 0.0;
+			B[ID1 * M + ID0] = 0.01;
 		}
 	}
 }

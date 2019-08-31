@@ -75,13 +75,9 @@ class Conv2D(AbstractLayer):
         ypad = (fys - self.weight.image_shape[1]) // 2
         xarea = (xpad, fxs - xpad)
         yarea = (ypad, fys - ypad)
-        # errT = err.transpose()
-        # ones = self.gpu.array(np.ones((self.x.shape[1], 1)))
-        # self.dbias = (ones @ errT).scale(lr)
-        self.dweight = err.dconv2d(self.x, area=(xarea, yarea), padding=0).scale(lr)
+        self.dweight = err.dconv2d(self.x, area=(xarea, yarea), padding=self.padding).scale(lr)
         self.weight = self.weight + self.dweight
-        # self.bias = self.bias + self.dbias
-        error = err.conv2d(self.weight, padding=0, reverse=True)
+        error = err.conv2d(self.weight, padding=self.padding, reverse=True)
         return error
 
 
@@ -94,7 +90,7 @@ class Dense(AbstractLayer):
         self.out_shape = outshape
         self.activation = activation
         self.weight_np = np.random.randn(outshape, inshape)
-        self.weight_np *= np.sqrt(2 / self.weight_np.size)
+        self.weight_np *= np.sqrt(2 / inshape)
         self.bias_np = np.zeros((outshape, 1))
 
     def __call__(self, x: Array):
@@ -121,8 +117,8 @@ class Dense(AbstractLayer):
             err = err * self.y.dsoftmax()
         errT = err.transpose()
         ones = self.gpu.array(np.ones((self.x.shape[1], 1)))
-        self.dbias = (ones @ errT).scale(lr)
-        self.dweight = (self.x.transpose() @ errT).scale(lr)
+        self.dbias = (ones @ errT).scale(lr / self.in_shape)
+        self.dweight = (self.x.transpose() @ errT).scale(lr / self.in_shape)
         self.bias = self.bias + self.dbias
         self.weight = self.weight + self.dweight
         error = err @ self.weight

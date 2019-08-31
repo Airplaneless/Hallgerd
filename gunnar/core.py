@@ -217,6 +217,16 @@ class Image(Array):
         self.image_shape = image_shape
         self.channels = channels
 
+    def softmax(self):
+        # TODO: softmax on kernels
+        nx = self.to_cpu()
+        nres = softmax(nx).astype(self.device.DTYPE)
+        out_shape = nres.shape
+        nres = self.device.guardShapes(nres)
+        resbuff = cl.Buffer(self.device.ctx, cl.mem_flags.READ_WRITE | cl.mem_flags.COPY_HOST_PTR, hostbuf=nres)
+        res = Image(self.device, resbuff, out_shape, self.bshape, self.image_shape, self.channels)
+        return res
+
     def crop(self, area):
         assert len(self.channels) == 2
         xcrop, ycrop = area
@@ -267,6 +277,7 @@ class Image(Array):
 
         iI_displ = np.int32(self.bshape[1])
         oI_displ = np.int32(other.bshape[1])
+        
         padding = np.int32(padding)
         batches = np.int32(self.shape[1])
 
@@ -277,13 +288,15 @@ class Image(Array):
         cpu_earr = self.device.guardShapes(cpu_earr)
         resbuff = cl.Buffer(self.device.ctx, cl.mem_flags.READ_WRITE, size=cpu_earr.nbytes)
         res = Image(self.device, resbuff, (imgIC * imgOC * oimgX * oimgY, 1), cpu_earr.shape, (oimgX, oimgY), (imgOC, imgIC))
+        
+        f_displ = np.int32(res.bshape[1])
 
         gs0 = (oimgX // self.device.CTS + 1) * self.device.CTS
         gs1 = (oimgY // self.device.CTS + 1) * self.device.CTS
         global_sizes = (int(gs0), int(gs1))
         local_sizes = (int(self.device.CTS), int(self.device.CTS))
 
-        event = self.device.prg.dconv2d(self.device.queue, global_sizes, local_sizes, ciI, coI, xI, yI, icf, ocf, xI, yI, oimgX, oimgY, iI_displ, oI_displ, padding, batches, x1, x2, y1, y2, self.buffer, other.buffer, res.buffer)
+        event = self.device.prg.dconv2d(self.device.queue, global_sizes, local_sizes, ciI, coI, xI, yI, icf, ocf, xI, yI, oimgX, oimgY, iI_displ, oI_displ, f_displ, padding, batches, x1, x2, y1, y2, self.buffer, other.buffer, res.buffer)
         cl.wait_for_events([event, ])
         return res
 
