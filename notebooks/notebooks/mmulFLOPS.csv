@@ -1,0 +1,16 @@
+﻿Device;Framework;GFLOPS
+i3-7100 + Intel HD 620 *;NumPy;55,869
+i3-7100 + Intel HD 620 *;PyTorch;57,266
+i3-7100 + Intel HD 620 *;Gunnar;49,79
+FX4350 + GTX660 *;NumPy;44,91
+FX4350 + GTX660 *;PyTorch;37,15
+FX4350 + GTX660 *;Gunnar;214,75
+Tesla K20Xm;NumPy;50
+Tesla K20Xm;PyTorch;858,99
+Tesla K20Xm;Gunnar;270,54
+Tesla K80 **;NumPy;50
+Tesla K80 **;PyTorch;701,21
+Tesla K80 **;Gunnar;288,73
+Tesla T4 **;NumPy;50
+Tesla T4 **;PyTorch;772,13
+Tesla T4 **;Gunnar;406,63

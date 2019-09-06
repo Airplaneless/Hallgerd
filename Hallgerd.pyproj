@@ -1,0 +1,58 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{58c456fc-4bf2-45db-a1fc-849099fcde8c}</ProjectGuid>
+    <ProjectHome />
+    <StartupFile>setup.py</StartupFile>
+    <SearchPath />
+    <WorkingDirectory>.</WorkingDirectory>
+    <OutputPath>.</OutputPath>
+    <ProjectTypeGuids>{888888a0-9f3d-457c-b088-3a5042f75d52}</ProjectTypeGuids>
+    <LaunchProvider>Standard Python launcher</LaunchProvider>
+    <InterpreterId />
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'" />
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'" />
+  <PropertyGroup>
+    <VisualStudioVersion Condition=" '$(VisualStudioVersion)' == '' ">10.0</VisualStudioVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="examples\mlp_mnist.py" />
+    <Compile Include="examples\timemmul.py" />
+    <Compile Include="gunnar\core.py" />
+    <Compile Include="gunnar\kernels\__init__.py" />
+    <Compile Include="gunnar\tests.py" />
+    <Compile Include="gunnar\__init__.py" />
+    <Compile Include="hallgerd\core.py" />
+    <Compile Include="hallgerd\layers.py" />
+    <Compile Include="hallgerd\losses.py" />
+    <Compile Include="hallgerd\tests.py" />
+    <Compile Include="hallgerd\__init__.py" />
+    <Compile Include="notebooks\notebooks\.ipynb_checkpoints\TimeMLP-checkpoint.py" />
+    <Compile Include="notebooks\notebooks\.ipynb_checkpoints\TimeMMul-checkpoint.py" />
+    <Compile Include="notebooks\notebooks\TimeMLP.py" />
+    <Compile Include="notebooks\notebooks\TimeMMul.py" />
+    <Compile Include="setup.py" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="gunnar\kernels\mat.cl" />
+    <Content Include="notebooks\dev\image.jpg" />
+    <Content Include="notebooks\notebooks\.ipynb_checkpoints\input-checkpoint.txt" />
+    <Content Include="notebooks\notebooks\input.txt" />
+    <Content Include="notebooks\notebooks\mlpTimes.png" />
+    <Content Include="notebooks\notebooks\mmulTimes.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="examples" />
+    <Folder Include="gunnar" />
+    <Folder Include="gunnar\kernels" />
+    <Folder Include="hallgerd" />
+    <Folder Include="notebooks\" />
+    <Folder Include="notebooks\dev" />
+    <Folder Include="notebooks\notebooks" />
+    <Folder Include="notebooks\notebooks\.ipynb_checkpoints" />
+  </ItemGroup>
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
+</Project>

@@ -3,3 +3,9 @@
 ################################################################################
 
 /.vs
+/gunnar/kernels/__pycache__
+/gunnar/__pycache__
+/hallgerd/__pycache__
+/notebooks/dev/.ipynb_checkpoints
+/notebooks/notebooks/.ipynb_checkpoints
+/notebooks/notebooks/mnist-data

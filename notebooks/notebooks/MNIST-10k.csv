@@ -1,0 +1,9 @@
+﻿Device;Framework;time
+i3-7100 + Intel HD 620 *;Hallgerd;30
+i3-7100 + Intel HD 620 *;PyTorch;35
+FX4350 + GTX660 *;Hallgerd;17,9
+FX4350 + GTX660 *;PyTorch;36
+Tesla K20Xm;Hallgerd;11
+Tesla K20Xm;PyTorch;6
+Tesla T4;Hallgerd;6,8
+Tesla T4;PyTorch;3,65

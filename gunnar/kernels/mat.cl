@@ -570,7 +570,7 @@ __kernel void relu(const int M,
 			B[ID1 * M + ID0] = bufferA[tx][ty];
 		}
 		else {
-			B[ID1 * M + ID0] = 0.01 * bufferA[tx][ty];
+			B[ID1 * M + ID0] = 0.0;
 		}
 	}
 }
@@ -604,7 +604,7 @@ __kernel void drelu(const int M,
 			B[ID1 * M + ID0] = 1.0;
 		}
 		else {
-			B[ID1 * M + ID0] = 0.01;
+			B[ID1 * M + ID0] = 0.0;
 		}
 	}
 }
